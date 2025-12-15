@@ -1,0 +1,147 @@
+/* components/Navbar.css */
+.navbar {
+  background-color: rgba(248, 249, 250, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #DEE2E6;
+  padding: 8px 0;
+  height: 64px;
+  transition: all 0.3s ease;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  padding: 0;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.navbar-logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: #007BFF;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.navbar-logo-text {
+  color: #212529;
+  font-size: 1.2rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.navbar-toggler {
+  border: none;
+  background: none;
+  padding: 8px;
+  color: #495057;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.navbar-toggler:hover {
+  color: #007BFF;
+}
+
+.navbar-toggler:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #007BFF;
+}
+
+.navbar-nav {
+  gap: 4px;
+}
+
+.nav-item {
+  position: relative;
+}
+
+.nav-link {
+  color: #495057 !important;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 8px 16px !important;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  position: relative;
+}
+
+.nav-link:hover {
+  background-color: #E3F2FD !important;
+  color: #007BFF !important;
+}
+
+.nav-link.active {
+  color: #007BFF !important;
+  background-color: #E3F2FD !important;
+  font-weight: 600;
+}
+
+.nav-link-indicator {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background-color: #007BFF;
+  border-radius: 50%;
+}
+
+@media (max-width: 991.98px) {
+  .navbar-collapse {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: rgba(248, 249, 250, 0.98);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid #DEE2E6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    padding: 8px 24px;
+    animation: slideDown 0.3s ease;
+  }
+
+  .navbar-nav {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .nav-link {
+    padding: 12px 16px !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .navbar-toggler {
+    display: none;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
