@@ -1,0 +1,32 @@
+// App.js
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Navbar from "./components/Navbar.jsx";
+import Home from "../pages/Home";
+import FTMixer from "../pages/FTMixer";
+import BeamformingSimulator from "../pages/BeamForming.jsx";
+import Documentation from "../pages/Documentation";
+import About from "../pages/About";
+import "../styles/App.css";
+
+function App() {
+  return (
+    <Router>
+      <div className="app">
+        <Navbar />
+
+        <main className="main-content">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/ft-mixer" element={<FTMixer />} />
+            <Route path="/beamforming" element={<BeamformingSimulator />} />
+            <Route path="/documentation" element={<Documentation />} />
+            <Route path="/about" element={<About />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
+  );
+}
+
+export default App;

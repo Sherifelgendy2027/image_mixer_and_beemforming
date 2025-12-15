@@ -1,0 +1,240 @@
+/* pages/About.css */
+.about-page {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #495057;
+}
+
+/* Header Section */
+.about-header-section {
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #DEE2E6;
+  padding: 60px 0;
+}
+
+.about-header-section .container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.about-icon-container {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background-color: #007BFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.about-main-icon {
+  font-size: 1.5rem;
+  color: white;
+}
+
+.about-main-title {
+  color: #212529;
+  font-size: 2.2rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.about-subtitle {
+  color: #495057;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.about-description {
+  color: #495057;
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin-top: 24px;
+}
+
+/* Goals Section */
+.goals-section {
+  background-color: #FFFFFF;
+  padding: 60px 0;
+}
+
+.goals-section .container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.goal-card {
+  background-color: #F8F9FA;
+  border: 1px solid #E9ECEF;
+  border-radius: 12px;
+  padding: 32px;
+  height: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.goal-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.goal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background-color: #E3F2FD;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.goal-icon i {
+  font-size: 1.5rem;
+  color: #007BFF;
+}
+
+.goal-title {
+  color: #212529;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 16px 0 12px;
+}
+
+.goal-description {
+  color: #495057;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Features Section */
+.features-section {
+  background-color: #F8F9FA;
+  padding: 60px 0;
+}
+
+.features-section .container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.feature-section-title {
+  color: #212529;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+
+.features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.feature-item {
+  color: #495057;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.feature-number {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: rgba(0, 123, 255, 0.1);
+  color: #007BFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.feature-number-teal {
+  background-color: rgba(32, 201, 151, 0.2);
+  color: #20C997;
+}
+
+/* Technologies Section */
+.technologies-section {
+  background-color: #FFFFFF;
+  padding: 60px 0;
+}
+
+.technologies-section .container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.technologies-icon {
+  font-size: 1.5rem;
+  color: #007BFF;
+}
+
+.technology-tag {
+  background-color: #E3F2FD;
+  color: #007BFF;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1px solid #DEE2E6;
+}
+
+/* Credits Section */
+.credits-section {
+  background-color: #F8F9FA;
+  padding: 48px 0;
+  border-top: 1px solid #E9ECEF;
+}
+
+.credits-section .container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.credits-text {
+  color: #495057;
+  font-size: 1rem;
+  margin-bottom: 12px;
+}
+
+.credits-year {
+  color: #495057;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .about-header-section {
+    padding: 40px 0;
+  }
+  
+  .about-main-title {
+    font-size: 1.8rem;
+  }
+  
+  .goals-section,
+  .features-section,
+  .technologies-section {
+    padding: 40px 0;
+  }
+  
+  .goal-card {
+    padding: 24px;
+  }
+  
+  .feature-section-title {
+    font-size: 1.3rem;
+  }
+}
