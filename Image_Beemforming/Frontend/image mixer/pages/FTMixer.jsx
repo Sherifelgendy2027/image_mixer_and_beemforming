@@ -1,266 +1,142 @@
-// pages/FTMixer.jsx
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import "../styles/FTMixer.css";
 
-// Custom components since we don't have shadcn
-const Slider = ({
-  value,
-  onValueChange,
-  max = 100,
-  step = 1,
-  className = "",
-}) => {
-  return (
-    <input
-      type="range"
-      className={`form-range custom-slider ${className}`}
-      value={value}
-      onChange={(e) => onValueChange([parseInt(e.target.value)])}
-      min="0"
-      max={max}
-      step={step}
-    />
-  );
-};
+// Import components
+import { InputViewport } from "../src/components/InputViewport";
+import { OutputViewport } from "../src/components/OutputViewport";
+import { LeftPanel } from "../src/components/LeftPanel";
+import { RightPanel } from "../src/components/RightPanel";
 
-const Switch = ({ checked, onCheckedChange }) => {
-  return (
-    <div className="form-check form-switch">
-      <input
-        className="form-check-input custom-switch"
-        type="checkbox"
-        role="switch"
-        checked={checked}
-        onChange={(e) => onCheckedChange(e.target.checked)}
-      />
-    </div>
-  );
-};
-
-const Select = ({ value, onValueChange, children, triggerClassName = "" }) => {
-  return (
-    <select
-      className={`form-select custom-select ${triggerClassName}`}
-      value={value}
-      onChange={(e) => onValueChange(e.target.value)}
-    >
-      {children}
-    </select>
-  );
-};
-
-const SelectItem = ({ value, children }) => {
-  return <option value={value}>{children}</option>;
-};
-
-const Label = ({ children, className = "" }) => {
-  return <label className={`form-label ${className}`}>{children}</label>;
-};
-
-const ftComponents = [
-  { value: "magnitude", label: "Magnitude" },
-  { value: "phase", label: "Phase" },
-  { value: "real", label: "Real" },
-  { value: "imaginary", label: "Imaginary" },
-];
-
-function InputViewport({ index, title, component, onComponentChange }) {
-  return (
-    <div className="viewport-container">
-      <div className="viewport-header">
-        <div className="viewport-header-left">
-          <div className="viewport-index">
-            <span>{index}</span>
-          </div>
-          <span className="viewport-title">{title}</span>
-        </div>
-        <Select value={component} onValueChange={onComponentChange}>
-          {ftComponents.map((comp) => (
-            <SelectItem key={comp.value} value={comp.value}>
-              {comp.label}
-            </SelectItem>
-          ))}
-        </Select>
-      </div>
-
-      <div className="viewport-content">
-        {/* Original Image */}
-        <div className="viewport-image-container">
-          <div className="viewport-placeholder">
-            <i className="bi bi-image placeholder-icon"></i>
-            <span className="placeholder-text">Original Image</span>
-          </div>
-        </div>
-
-        {/* FT Component */}
-        <div className="viewport-image-container">
-          <div className="viewport-placeholder">
-            <i className="bi bi-layers placeholder-icon"></i>
-            <span className="placeholder-text">FT {component}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OutputViewport({ label }) {
-  return (
-    <div className="output-viewport-container">
-      <div className="output-viewport-header">
-        <div className="viewport-header-left">
-          <div className="output-viewport-icon">
-            <i className="bi bi-square"></i>
-          </div>
-          <span className="viewport-title">{label}</span>
-        </div>
-      </div>
-
-      <div className="output-viewport-content">
-        <div className="output-placeholder">
-          <i className="bi bi-image placeholder-icon-large"></i>
-          <span className="placeholder-text">Mixed Output</span>
-          <p className="placeholder-subtext">Adjust sliders to see result</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
+// Main FTMixer component
 function FTMixer() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [activeOutput, setActiveOutput] = useState("A");
+  const [autoMix, setAutoMix] = useState(false);
   const [viewportComponents, setViewportComponents] = useState([
     "magnitude",
     "magnitude",
     "magnitude",
     "magnitude",
   ]);
-  const [mixerValues, setMixerValues] = useState([
+  const [magPhaseValues, setMagPhaseValues] = useState([
     50, 50, 50, 50, 50, 50, 50, 50,
   ]);
-  const [useMagPhase, setUseMagPhase] = useState(true);
+  const [realImagValues, setRealImagValues] = useState([
+    50, 50, 50, 50, 50, 50, 50, 50,
+  ]);
   const [useInnerRegion, setUseInnerRegion] = useState(true);
   const [regionSize, setRegionSize] = useState([50]);
 
-  const handleComponentChange = (index, value) => {
-    const newComponents = [...viewportComponents];
-    newComponents[index] = value;
-    setViewportComponents(newComponents);
-  };
+  // Image state
+  const [images, setImages] = useState([null, null, null, null]);
+  const [unifiedSize, setUnifiedSize] = useState(null);
 
-  const handleSliderChange = (index, value) => {
-    const newValues = [...mixerValues];
-    newValues[index] = value[0];
-    setMixerValues(newValues);
-  };
+  // Calculate unified size whenever images change
+  useEffect(() => {
+    const loadedImages = images.filter((img) => img !== null);
+    if (loadedImages.length === 0) {
+      setUnifiedSize(null);
+      return;
+    }
+
+    const minWidth = Math.min(...loadedImages.map((img) => img.originalWidth));
+    const minHeight = Math.min(
+      ...loadedImages.map((img) => img.originalHeight)
+    );
+    setUnifiedSize({ width: minWidth, height: minHeight });
+  }, [images]);
+
+  const handleComponentChange = useCallback((index, value) => {
+    setViewportComponents((prev) => {
+      const newComponents = [...prev];
+      newComponents[index] = value;
+      return newComponents;
+    });
+  }, []);
+
+  const handleMagPhaseSliderChange = useCallback((index, value) => {
+    setMagPhaseValues((prev) => {
+      const newValues = [...prev];
+      newValues[index] = value[0];
+      return newValues;
+    });
+  }, []);
+
+  const handleRealImagSliderChange = useCallback((index, value) => {
+    setRealImagValues((prev) => {
+      const newValues = [...prev];
+      newValues[index] = value[0];
+      return newValues;
+    });
+  }, []);
+
+  const handleImageLoad = useCallback((index, imageData) => {
+    setImages((prev) => {
+      const newImages = [...prev];
+      newImages[index] = imageData;
+      return newImages;
+    });
+  }, []);
+
+  const handleImageReplace = useCallback(
+    (index) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.onchange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              handleImageLoad(index, {
+                src: event.target?.result,
+                originalWidth: img.width,
+                originalHeight: img.height,
+              });
+            };
+            img.src = event.target?.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      };
+      input.click();
+    },
+    [handleImageLoad]
+  );
+
+  const handleResetAll = useCallback(() => {
+    setImages([null, null, null, null]);
+    setUnifiedSize(null);
+    setViewportComponents(["magnitude", "magnitude", "magnitude", "magnitude"]);
+    setMagPhaseValues([50, 50, 50, 50, 50, 50, 50, 50]);
+    setRealImagValues([50, 50, 50, 50, 50, 50, 50, 50]);
+    setRegionSize([50]);
+    setUseInnerRegion(true);
+    setAutoMix(false);
+  }, []);
+
+  const handleResetRightPanel = useCallback(() => {
+    setRealImagValues([50, 50, 50, 50, 50, 50, 50, 50]);
+    setRegionSize([50]);
+    setUseInnerRegion(true);
+  }, []);
 
   return (
     <div className="ft-mixer-page">
       <div className="ft-mixer-layout">
         {/* Left Control Panel */}
-        <div className={`left-panel ${leftPanelOpen ? "open" : "closed"}`}>
-          {leftPanelOpen && (
-            <div className="panel-content">
-              {/* Image Management */}
-              <div className="panel-section">
-                <h3 className="panel-title">
-                  <i className="bi bi-upload me-2"></i>
-                  Image Management
-                </h3>
-                <div className="image-buttons">
-                  {[1, 2, 3, 4].map((num) => (
-                    <button
-                      key={num}
-                      className="btn btn-outline-primary btn-sm image-btn"
-                    >
-                      Load Image {num}
-                    </button>
-                  ))}
-                </div>
-                <button className="btn btn-outline-secondary btn-sm w-100 mt-2">
-                  <i className="bi bi-arrow-clockwise me-2"></i>
-                  Reset All
-                </button>
-              </div>
-
-              {/* Components Mixer */}
-              <div className="panel-section">
-                <h3 className="panel-title">
-                  <i className="bi bi-sliders me-2"></i>
-                  Components Mixer
-                </h3>
-
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <Label className="panel-label">
-                    {useMagPhase ? "Magnitude / Phase" : "Real / Imaginary"}
-                  </Label>
-                  <Switch
-                    checked={useMagPhase}
-                    onCheckedChange={setUseMagPhase}
-                  />
-                </div>
-
-                <div className="sliders-section">
-                  {mixerValues.map((value, index) => (
-                    <div key={index} className="slider-group">
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <Label className="slider-label">
-                          {useMagPhase
-                            ? index % 2 === 0
-                              ? `Mag ${Math.floor(index / 2) + 1}`
-                              : `Phase ${Math.floor(index / 2) + 1}`
-                            : index % 2 === 0
-                            ? `Real ${Math.floor(index / 2) + 1}`
-                            : `Imag ${Math.floor(index / 2) + 1}`}
-                        </Label>
-                        <span className="slider-value">{value}%</span>
-                      </div>
-                      <Slider
-                        value={value}
-                        onValueChange={(v) => handleSliderChange(index, v)}
-                        max={100}
-                        step={1}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Regions Mixer */}
-              <div className="panel-section">
-                <h3 className="panel-title">
-                  <i className="bi bi-square me-2"></i>
-                  Regions Mixer
-                </h3>
-
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <Label className="panel-label">
-                    {useInnerRegion ? "Inner Region" : "Outer Region"}
-                  </Label>
-                  <Switch
-                    checked={useInnerRegion}
-                    onCheckedChange={setUseInnerRegion}
-                  />
-                </div>
-
-                <div className="slider-group">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <Label className="slider-label">Region Size</Label>
-                    <span className="slider-value">{regionSize[0]}%</span>
-                  </div>
-                  <Slider
-                    value={regionSize[0]}
-                    onValueChange={(v) => setRegionSize(v)}
-                    max={100}
-                    step={1}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <LeftPanel
+          leftPanelOpen={leftPanelOpen}
+          images={images}
+          unifiedSize={unifiedSize}
+          magPhaseValues={magPhaseValues}
+          handleImageReplace={handleImageReplace}
+          handleResetAll={handleResetAll}
+          handleMagPhaseSliderChange={handleMagPhaseSliderChange}
+        />
 
         {/* Toggle Left Panel */}
         <button
@@ -281,7 +157,7 @@ function FTMixer() {
             <span className="header-title">Show mix in:</span>
             <div className="output-selector">
               <button
-                className={`btn btn-sm ${
+                className={`btn btn-sm p-1 ${
                   activeOutput === "A" ? "btn-primary" : "btn-outline-primary"
                 }`}
                 onClick={() => setActiveOutput("A")}
@@ -289,7 +165,7 @@ function FTMixer() {
                 Output A
               </button>
               <button
-                className={`btn btn-sm ${
+                className={`btn btn-sm p-1 ${
                   activeOutput === "B" ? "btn-primary" : "btn-outline-primary"
                 }`}
                 onClick={() => setActiveOutput("B")}
@@ -298,32 +174,87 @@ function FTMixer() {
               </button>
             </div>
             <div className="flex-grow-1"></div>
-            <button className="btn btn-primary btn-sm">
-              <i className="bi bi-play-fill me-2"></i>
-              Process Mix
+            {/* Auto Mix Toggle Button */}
+            <button
+              className={`btn btn-sm border ${
+                autoMix ? "btn-success" : "btn-outline-secondary"
+              }`}
+              onClick={() => setAutoMix(!autoMix)}
+            >
+              <i
+                className={`bi ${
+                  autoMix ? "bi-toggle-on" : "bi-toggle-off"
+                } me-2`}
+              ></i>
+              Auto Mix {autoMix ? "ON" : "OFF"}
             </button>
           </div>
 
           {/* Viewports Grid */}
           <div className="workspace-content">
             <div className="viewport-grid">
-              {/* Input Viewports - 2x2 Grid */}
-              <div className="input-viewports">
-                {[1, 2, 3, 4].map((num, index) => (
-                  <InputViewport
-                    key={num}
-                    index={num}
-                    title={`Input ${num}`}
-                    component={viewportComponents[index]}
-                    onComponentChange={(v) => handleComponentChange(index, v)}
-                  />
-                ))}
+              {/* Row 1: Input 1, Input 2, Output A */}
+              <div className="viewport-row">
+                <InputViewport
+                  index={0}
+                  title="Input 1"
+                  component={viewportComponents[0]}
+                  onComponentChange={(v) => handleComponentChange(0, v)}
+                  image={images[0]}
+                  unifiedSize={unifiedSize}
+                  onImageLoad={handleImageLoad}
+                  onImageReplace={handleImageReplace}
+                />
+                <InputViewport
+                  index={1}
+                  title="Input 2"
+                  component={viewportComponents[1]}
+                  onComponentChange={(v) => handleComponentChange(1, v)}
+                  image={images[1]}
+                  unifiedSize={unifiedSize}
+                  onImageLoad={handleImageLoad}
+                  onImageReplace={handleImageReplace}
+                />
+                <OutputViewport
+                  label="Output A"
+                  images={images}
+                  activeOutput={activeOutput}
+                  magPhaseValues={magPhaseValues}
+                  realImagValues={realImagValues}
+                  autoMix={autoMix && activeOutput === "A"}
+                />
               </div>
 
-              {/* Output Viewports */}
-              <div className="output-viewports">
-                <OutputViewport label="Output A" />
-                <OutputViewport label="Output B" />
+              {/* Row 2: Input 3, Input 4, Output B */}
+              <div className="viewport-row">
+                <InputViewport
+                  index={2}
+                  title="Input 3"
+                  component={viewportComponents[2]}
+                  onComponentChange={(v) => handleComponentChange(2, v)}
+                  image={images[2]}
+                  unifiedSize={unifiedSize}
+                  onImageLoad={handleImageLoad}
+                  onImageReplace={handleImageReplace}
+                />
+                <InputViewport
+                  index={3}
+                  title="Input 4"
+                  component={viewportComponents[3]}
+                  onComponentChange={(v) => handleComponentChange(3, v)}
+                  image={images[3]}
+                  unifiedSize={unifiedSize}
+                  onImageLoad={handleImageLoad}
+                  onImageReplace={handleImageReplace}
+                />
+                <OutputViewport
+                  label="Output B"
+                  images={images}
+                  activeOutput={activeOutput}
+                  magPhaseValues={magPhaseValues}
+                  realImagValues={realImagValues}
+                  autoMix={autoMix && activeOutput === "B"}
+                />
               </div>
             </div>
           </div>
@@ -341,61 +272,17 @@ function FTMixer() {
           )}
         </button>
 
-        {/* Right Information Panel */}
-        <div className={`right-panel ${rightPanelOpen ? "open" : "closed"}`}>
-          {rightPanelOpen && (
-            <div className="panel-content">
-              {/* Current Settings */}
-              <div className="panel-section">
-                <h3 className="panel-title">Current Settings</h3>
-                <div className="settings-card">
-                  <div className="setting-item">
-                    <span className="setting-label">Mode:</span>
-                    <span className="setting-value">
-                      {useMagPhase ? "Mag/Phase" : "Real/Imag"}
-                    </span>
-                  </div>
-                  <div className="setting-item">
-                    <span className="setting-label">Region:</span>
-                    <span className="setting-value">
-                      {useInnerRegion ? "Inner" : "Outer"}
-                    </span>
-                  </div>
-                  <div className="setting-item">
-                    <span className="setting-label">Region Size:</span>
-                    <span className="setting-value">{regionSize[0]}%</span>
-                  </div>
-                  <div className="setting-item">
-                    <span className="setting-label">Active Output:</span>
-                    <span className="setting-value">Output {activeOutput}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Instructions */}
-              <div className="panel-section">
-                <h3 className="panel-title">Instructions</h3>
-                <div className="instructions-list">
-                  <p>
-                    1. Load images into the input viewports using the controls
-                    on the left.
-                  </p>
-                  <p>
-                    2. Select which FT component to display for each viewport.
-                  </p>
-                  <p>
-                    3. Adjust the mixer sliders to blend components from
-                    different images.
-                  </p>
-                  <p>
-                    4. Use region controls to focus on specific frequency areas.
-                  </p>
-                  <p>5. Click "Process Mix" to see the result.</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Right Information Panel - Updated with Region Mixer and Real/Imaginary */}
+        <RightPanel
+          rightPanelOpen={rightPanelOpen}
+          useInnerRegion={useInnerRegion}
+          regionSize={regionSize}
+          realImagValues={realImagValues}
+          setUseInnerRegion={setUseInnerRegion}
+          setRegionSize={setRegionSize}
+          handleResetRightPanel={handleResetRightPanel}
+          handleRealImagSliderChange={handleRealImagSliderChange}
+        />
       </div>
     </div>
   );
