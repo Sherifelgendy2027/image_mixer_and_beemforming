@@ -47,16 +47,16 @@ export const RightPanel = React.memo(
                 step={1}
               />
             </div>
-          </div>
 
-          {/* Reset All Button for Right Panel */}
-          <button
-            className="btn btn-outline-secondary btn-sm w-100 mt-2"
-            onClick={handleResetRightPanel}
-          >
-            <i className="bi bi-arrow-clockwise me-2"></i>
-            Reset All
-          </button>
+            {/* Reset All Button for Right Panel */}
+            <button
+                className="btn btn-outline-secondary btn-sm w-100 mt-2"
+                onClick={handleResetRightPanel}
+            >
+                <i className="bi bi-arrow-clockwise me-2"></i>
+                Reset All
+            </button>
+          </div>
 
           {/* Real / Imaginary Mixer */}
           <div className="panel-section">

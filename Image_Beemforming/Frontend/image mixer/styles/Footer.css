@@ -1,0 +1,7 @@
+.footer {
+    text-align: center;
+    background-color: rgba(248, 249, 250, 0.95);
+    backdrop-filter: blur(8px);
+    height: 64px;
+    align-content: center;
+}

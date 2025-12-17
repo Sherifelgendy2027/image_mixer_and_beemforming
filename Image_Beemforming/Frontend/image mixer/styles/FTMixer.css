@@ -45,6 +45,7 @@
 
 .panel-section {
   margin-bottom: 30px;
+  min-height: 187px;
 }
 
 .panel-title {
