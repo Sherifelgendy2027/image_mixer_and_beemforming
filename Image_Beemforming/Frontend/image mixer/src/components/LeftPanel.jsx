@@ -18,7 +18,7 @@ export const LeftPanel = React.memo(
       <div className={`left-panel open`}>
         <div className="panel-content">
           {/* Image Management */}
-          <div className="panel-section">
+          <div className="panel-section d-flex flex-column align-items-center justify-content-between">
             <h3 className="panel-title">
               <i className="bi bi-upload me-2"></i>
               Image Management
