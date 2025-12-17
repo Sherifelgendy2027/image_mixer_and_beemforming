@@ -6,7 +6,6 @@ export const LeftPanel = React.memo(
   ({
     leftPanelOpen,
     images,
-    unifiedSize,
     magPhaseValues,
     handleImageReplace,
     handleResetAll,
@@ -43,11 +42,6 @@ export const LeftPanel = React.memo(
               <i className="bi bi-arrow-clockwise me-2"></i>
               Reset All
             </button>
-            {unifiedSize && (
-              <p className="unified-size-info">
-                Unified size: {unifiedSize.width} × {unifiedSize.height}px
-              </p>
-            )}
           </div>
 
           {/* Magnitude / Phase Mixer - Fixed (no toggle) */}

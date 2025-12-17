@@ -5,6 +5,7 @@ export const Slider = ({
   max = 100,
   step = 1,
   className = "",
+  disable = false,
 }) => {
   return (
     <input
@@ -15,11 +16,12 @@ export const Slider = ({
       min="0"
       max={max}
       step={step}
+      disabled={disable}
     />
   );
 };
 
-export const Switch = ({ checked, onCheckedChange }) => {
+export const Switch = ({ checked, onCheckedChange, disable=false }) => {
   return (
     <div className="form-check form-switch">
       <input
@@ -28,6 +30,7 @@ export const Switch = ({ checked, onCheckedChange }) => {
         role="switch"
         checked={checked}
         onChange={(e) => onCheckedChange(e.target.checked)}
+        disabled={disable}
       />
     </div>
   );
