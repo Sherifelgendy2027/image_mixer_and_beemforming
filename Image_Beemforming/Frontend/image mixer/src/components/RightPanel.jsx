@@ -22,20 +22,23 @@ export const RightPanel = React.memo(
         <div className="panel-content">
           {/* Region Mixer - Moved from left panel */}
           <div className="panel-section">
-            <div className="region-mixer-header">
-                <h3 className="panel-title">Region Mixer</h3>
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <Label className="panel-label">
-                    Enable
-                  </Label>
-                  <Switch
-                    checked={regionEnable}
-                    onCheckedChange={setRegionEnable}
-                  />
-                </div>
-            </div>
+              <div className="region-mixer-header">
+                  <h3 className="panel-title">
+                      <i className="bi bi-bounding-box-circles me-2"></i>
+                      Region Mixer
+                  </h3>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                      <Label className="panel-label">
+                          Enable
+                      </Label>
+                      <Switch
+                          checked={regionEnable}
+                          onCheckedChange={setRegionEnable}
+                      />
+                  </div>
+              </div>
 
-            <div className="d-flex justify-content-between align-items-center mb-3">
+              <div className="d-flex justify-content-between align-items-center mb-3">
               <Label className="panel-label">
                 {useInnerRegion ? "Inner Region" : "Outer Region"}
               </Label>
