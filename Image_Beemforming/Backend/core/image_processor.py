@@ -29,6 +29,8 @@ class ImageProcessor:
         self.shape = img.shape
         self._compute_fft()
 
+        return img
+
     def resize(self, new_width, new_height):
         if self.original_data is None:
             return

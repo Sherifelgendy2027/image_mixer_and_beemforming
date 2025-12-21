@@ -8,8 +8,9 @@ class FTMixer:
 
     def update_image(self, index, filepath):
         if 0 <= index < 4:
-            self.images[index].load_image(filepath)
+            img = self.images[index].load_image(filepath)
             self.unify_sizes()
+            return img
 
     def adjust_image_bc(self, index, brightness, contrast):
         if 0 <= index < 4:
