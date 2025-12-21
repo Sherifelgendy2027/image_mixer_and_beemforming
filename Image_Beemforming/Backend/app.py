@@ -14,12 +14,12 @@ from core.beamforming import Beamformer
 app = Flask(__name__)
 CORS(app)  # <--- 2. Enable CORS for all routes and origins
 
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = 'static\\uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['UPLOAD_FOLDER'] = 'static\\uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 mixer = FTMixer()
@@ -36,8 +36,10 @@ def upload_file(slot_id):
     file = request.files['file']
     if file.filename == '': return jsonify({'error': 'Empty'}), 400
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], f'image_{slot_id}.png')
+
     file.save(filepath)
-    mixer.update_image(slot_id - 1, filepath)
+    img = mixer.update_image(slot_id - 1, filepath)
+    img.save(filepath)
     return jsonify({'filepath': filepath})
 
 @app.route('/component/<int:slot_id>/<type>', methods=['GET'])
