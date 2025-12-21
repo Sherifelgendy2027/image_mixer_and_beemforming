@@ -3,8 +3,20 @@ import cv2
 import base64
 import numpy as np
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 from core.ft_mixer import FTMixer
 from core.beamforming import Beamformer
+
+
+from core.ft_mixer import FTMixer
+from core.beamforming import Beamformer
+
+app = Flask(__name__)
+CORS(app)  # <--- 2. Enable CORS for all routes and origins
+
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
