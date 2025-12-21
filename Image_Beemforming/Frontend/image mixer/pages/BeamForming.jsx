@@ -3,15 +3,15 @@ import { Chart } from "chart.js/auto";
 import "../styles/Beamforming.css";
 
 // Import components
-import Switch from "../components/Switch";
-import Label from "../components/Label";
-import Collapsible from "../components/Collapsible";
-import UnitCard from "../components/UnitCard";
-import VisualizationPanel from "../components/VisualizationPanel";
+import Switch from "../src/components/Switch";
+import Label from "../src/components/Label";
+import Collapsible from "../src/components/Collapsible";
+import UnitCard from "../src/components/UnitCard";
+import VisualizationPanel from "../src/components/VisualizationPanel";
 
 // Import constants and utils
-import { defaultUnit, scenarios } from "../constants/beamforming";
-import { simulateBeamforming } from "../utils/beamforming";
+import { defaultUnit, scenarios } from "../src/constants/beamforming";
+import { simulateBeamforming } from "../src/utils/beamforming";
 
 function Beamforming() {
   const [units, setUnits] = useState([{ ...defaultUnit }]);
