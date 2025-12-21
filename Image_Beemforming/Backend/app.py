@@ -12,13 +12,8 @@ from core.ft_mixer import FTMixer
 from core.beamforming import Beamformer
 
 app = Flask(__name__)
-CORS(app)  # <--- 2. Enable CORS for all routes and origins
+CORS(app, origins="*")  # <--- 2. Enable CORS for all routes and origins
 
-app.config['UPLOAD_FOLDER'] = 'static\\uploads'
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-
-app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'static\\uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
