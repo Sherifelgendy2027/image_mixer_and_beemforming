@@ -1,105 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FT Mixer App</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <!-- Nav Added -->
-    <div class="nav-bar">
-        <a href="/" class="active">Part A: FT Mixer</a>
-        <a href="/beamforming">Part B: Beamforming</a>
-    </div>
 
-    <div class="container">
-        <!-- ... Rest of the original index.html content ... -->
-        <div class="header">
-            <h1>FT Image Mixer</h1>
-            <div class="global-controls">
-                <div class="control-group">
-                    <label>Target Output:</label>
-                    <select id="targetOutput" onchange="switchOutputPort()">
-                        <option value="1">Output Port 1</option>
-                        <option value="2">Output Port 2</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label>Mixer Mode:</label>
-                    <select id="mixMode" onchange="updateUIForMode()">
-                        <option value="magnitude_phase">Magnitude / Phase</option>
-                        <option value="real_imaginary">Real / Imaginary</option>
-                    </select>
-                </div>
-            </div>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>FT Mixer App</title>
+        <link rel="stylesheet" href="../static/css/style.css">
+    </head>
+
+    <body>
+        <!-- Nav Added -->
+        <div class="nav-bar">
+            <a href="/" class="active">Part A: FT Mixer</a>
+            <a href="/beamforming">Part B: Beamforming</a>
         </div>
-        
-        <div class="grid-container inputs">
-            {% for i in range(1, 5) %}
-            <div class="image-card" id="card{{i}}">
-                <div class="card-header">
-                    <span>Image {{i}}</span>
-                    <button class="btn-sm" onclick="document.getElementById('file{{i}}').click()">📂</button>
-                    <input type="file" id="file{{i}}" hidden accept="image/*" onchange="uploadImage('{{i}}')">
-                </div>
 
-                <div class="viewport img-viewport" id="viewport{{i}}" 
-                     onmousedown="startBCDrag(event, '{{i}}')" 
-                     ondblclick="document.getElementById('file{{i}}').click()">
-                    <img id="img{{i}}" src="" alt="Double click to upload">
-                    <div class="overlay-text" id="bcLabel{{i}}" style="display:none;">B:0 C:1</div>
-                </div>
-
-                <div class="ft-section">
-                    <select id="ftSelect{{i}}" onchange="updateFTDisplay('{{i}}')" class="ft-select">
-                    </select>
-                    <div class="viewport ft-viewport">
-                        <canvas id="ftCanvas{{i}}"></canvas>
+        <div class="container">
+            <!-- ... Rest of the original index.html content ... -->
+            <div class="header">
+                <h1>FT Image Mixer</h1>
+                <div class="global-controls">
+                    <div class="control-group">
+                        <label>Target Output:</label>
+                        <select id="targetOutput" onchange="switchOutputPort()">
+                            <option value="1">Output Port 1</option>
+                            <option value="2">Output Port 2</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Mixer Mode:</label>
+                        <select id="mixMode" onchange="updateUIForMode()">
+                            <option value="magnitude_phase">Magnitude / Phase</option>
+                            <option value="real_imaginary">Real / Imaginary</option>
+                        </select>
                     </div>
                 </div>
+            </div>
 
-                <div class="controls-group">
-                    <div class="control-header">
-                        <strong class="comp1-label">Comp 1</strong>
-                        <div class="radio-group">
-                            <label><input type="radio" name="r1_img{{i}}" value="inner" checked onchange="updateMix()"> Inner</label>
-                            <label><input type="radio" name="r1_img{{i}}" value="outer" onchange="updateMix()"> Outer</label>
+            <div class="grid-container inputs">
+                {% for i in range(1, 5) %}
+                <div class="image-card" id="card{{i}}">
+                    <div class="card-header">
+                        <span>Image {{i}}</span>
+                        <button class="btn-sm" onclick="document.getElementById('file{{i}}').click()">📂</button>
+                        <input type="file" id="file{{i}}" hidden accept="image/*" onchange="uploadImage('{{i}}')">
+                    </div>
+
+                    <div class="viewport img-viewport" id="viewport{{i}}" onmousedown="startBCDrag(event, '{{i}}')"
+                        ondblclick="document.getElementById('file{{i}}').click()">
+                        <img id="img{{i}}" src="" alt="Double click to upload">
+                        <div class="overlay-text" id="bcLabel{{i}}" style="display:none;">B:0 C:1</div>
+                    </div>
+
+                    <div class="ft-section">
+                        <select id="ftSelect{{i}}" onchange="updateFTDisplay('{{i}}')" class="ft-select">
+                        </select>
+                        <div class="viewport ft-viewport">
+                            <canvas id="ftCanvas{{i}}"></canvas>
                         </div>
                     </div>
-                    <input type="range" id="slider1_img{{i}}" min="0" max="100" value="0" oninput="updateMix()">
-                </div>
 
-                <div class="controls-group">
-                    <div class="control-header">
-                        <strong class="comp2-label">Comp 2</strong>
-                        <div class="radio-group">
-                            <label><input type="radio" name="r2_img{{i}}" value="inner" checked onchange="updateMix()"> Inner</label>
-                            <label><input type="radio" name="r2_img{{i}}" value="outer" onchange="updateMix()"> Outer</label>
+                    <div class="controls-group">
+                        <div class="control-header">
+                            <strong class="comp1-label">Comp 1</strong>
+                            <div class="radio-group">
+                                <label><input type="radio" name="r1_img{{i}}" value="inner" checked
+                                        onchange="updateMix()"> Inner</label>
+                                <label><input type="radio" name="r1_img{{i}}" value="outer" onchange="updateMix()">
+                                    Outer</label>
+                            </div>
                         </div>
+                        <input type="range" id="slider1_img{{i}}" min="0" max="100" value="0" oninput="updateMix()">
                     </div>
-                    <input type="range" id="slider2_img{{i}}" min="0" max="100" value="0" oninput="updateMix()">
+
+                    <div class="controls-group">
+                        <div class="control-header">
+                            <strong class="comp2-label">Comp 2</strong>
+                            <div class="radio-group">
+                                <label><input type="radio" name="r2_img{{i}}" value="inner" checked
+                                        onchange="updateMix()"> Inner</label>
+                                <label><input type="radio" name="r2_img{{i}}" value="outer" onchange="updateMix()">
+                                    Outer</label>
+                            </div>
+                        </div>
+                        <input type="range" id="slider2_img{{i}}" min="0" max="100" value="0" oninput="updateMix()">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="output-section">
+                <div class="output-card" id="outCard1">
+                    <h3>Output Port 1</h3>
+                    <div class="viewport output-viewport">
+                        <img id="outputImg1" src="" alt="Result 1">
+                    </div>
+                </div>
+                <div class="output-card" id="outCard2">
+                    <h3>Output Port 2</h3>
+                    <div class="viewport output-viewport">
+                        <img id="outputImg2" src="" alt="Result 2">
+                    </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
 
-        <div class="output-section">
-            <div class="output-card" id="outCard1">
-                <h3>Output Port 1</h3>
-                <div class="viewport output-viewport">
-                    <img id="outputImg1" src="" alt="Result 1">
-                </div>
-            </div>
-            <div class="output-card" id="outCard2">
-                <h3>Output Port 2</h3>
-                <div class="viewport output-viewport">
-                    <img id="outputImg2" src="" alt="Result 2">
-                </div>
-            </div>
-        </div>
-    </div>
+        <script src="../static/js/main.js"></script>
+    </body>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
 </html>

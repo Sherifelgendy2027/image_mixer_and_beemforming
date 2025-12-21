@@ -1,81 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beamforming Simulator</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <!-- Chart.js for Graphs -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-    <!-- Nav -->
-    <div class="nav-bar">
-        <a href="/">Part A: FT Mixer</a>
-        <a href="/beamforming" class="active">Part B: Beamforming</a>
-    </div>
 
-    <div class="container">
-        <div class="header">
-            <h1>Beamforming Simulator</h1>
-            <div class="presets">
-                <label>Scenarios:</label>
-                <button onclick="loadScenario('5g')">5G</button>
-                <button onclick="loadScenario('ultrasound')">Ultrasound</button>
-                <button onclick="loadScenario('ablation')">Tumor Ablation</button>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Beamforming Simulator</title>
+        <link rel="stylesheet" href="../static/css/style.css">
+        <!-- Chart.js for Graphs -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    </head>
+
+    <body>
+        <!-- Nav -->
+        <div class="nav-bar">
+            <a href="/">Part A: FT Mixer</a>
+            <a href="/beamforming" class="active">Part B: Beamforming</a>
+        </div>
+
+        <div class="container">
+            <div class="header">
+                <h1>Beamforming Simulator</h1>
+                <div class="presets">
+                    <label>Scenarios:</label>
+                    <button onclick="loadScenario('5g')">5G</button>
+                    <button onclick="loadScenario('ultrasound')">Ultrasound</button>
+                    <button onclick="loadScenario('ablation')">Tumor Ablation</button>
+                </div>
+            </div>
+
+            <div class="bf-grid">
+                <!-- Visualization Column -->
+                <div class="viz-column">
+                    <!-- Stacked Visualizations -->
+
+                    <!-- 1. Rectangular Beam Pattern -->
+                    <div class="viz-card">
+                        <h3>Rectangular Beam Pattern</h3>
+                        <div class="canvas-container">
+                            <canvas id="beamChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 2. Polar Beam Pattern -->
+                    <div class="viz-card">
+                        <h3>Polar Beam Pattern</h3>
+                        <div class="canvas-container">
+                            <canvas id="polarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 3. Array Geometry -->
+                    <div class="viz-card">
+                        <h3>Array Geometry</h3>
+                        <div class="canvas-container">
+                            <canvas id="geoChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 4. Interference Map (Sector/Polar appearance) -->
+                    <div class="viz-card">
+                        <h3>Interference Map</h3>
+                        <div class="heatmap-container">
+                            <img id="heatmapImg" src="" alt="Interference Map">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parameters Column -->
+                <div class="param-column">
+                    <h3>Phased Array Units</h3>
+                    <div id="unitsContainer">
+                        <!-- Units injected here via JS -->
+                    </div>
+                    <button class="btn-add" onclick="addUnit()">+ Add Unit</button>
+                    <!-- Update button removed as requested -->
+                </div>
             </div>
         </div>
 
-        <div class="bf-grid">
-            <!-- Visualization Column -->
-            <div class="viz-column">
-                <!-- Stacked Visualizations -->
-                
-                <!-- 1. Rectangular Beam Pattern -->
-                <div class="viz-card">
-                    <h3>Rectangular Beam Pattern</h3>
-                    <div class="canvas-container">
-                        <canvas id="beamChart"></canvas>
-                    </div>
-                </div>
+        <script src="../static/js/beamforming.js"></script>
+    </body>
 
-                <!-- 2. Polar Beam Pattern -->
-                <div class="viz-card">
-                    <h3>Polar Beam Pattern</h3>
-                    <div class="canvas-container">
-                        <canvas id="polarChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- 3. Array Geometry -->
-                <div class="viz-card">
-                    <h3>Array Geometry</h3>
-                    <div class="canvas-container">
-                        <canvas id="geoChart"></canvas>
-                    </div>
-                </div>
-                
-                <!-- 4. Interference Map (Sector/Polar appearance) -->
-                <div class="viz-card">
-                    <h3>Interference Map</h3>
-                    <div class="heatmap-container">
-                        <img id="heatmapImg" src="" alt="Interference Map">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Parameters Column -->
-            <div class="param-column">
-                <h3>Phased Array Units</h3>
-                <div id="unitsContainer">
-                    <!-- Units injected here via JS -->
-                </div>
-                <button class="btn-add" onclick="addUnit()">+ Add Unit</button>
-                <!-- Update button removed as requested -->
-            </div>
-        </div>
-    </div>
-
-    <script src="{{ url_for('static', filename='js/beamforming.js') }}"></script>
-</body>
 </html>

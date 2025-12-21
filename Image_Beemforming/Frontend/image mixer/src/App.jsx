@@ -5,7 +5,7 @@ import Navbar from "./components/Navbar.jsx";
 import Footer from "./components/Footer.jsx";
 import Home from "../pages/Home";
 import FTMixer from "../pages/FTMixer";
-import BeamformingSimulator from "../pages/BeamForming.jsx";
+import BeamForming from "../pages/BeamForming.jsx";
 import Documentation from "../pages/Documentation";
 import About from "../pages/About";
 import "../styles/App.css";
@@ -20,7 +20,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/ft-mixer" element={<FTMixer />} />
-            <Route path="/beamforming" element={<BeamformingSimulator />} />
+            <Route path="/beamforming" element={<BeamForming />} />
             <Route path="/documentation" element={<Documentation />} />
             <Route path="/about" element={<About />} />
           </Routes>
