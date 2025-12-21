@@ -37,9 +37,11 @@ def upload_file(slot_id):
     if file.filename == '': return jsonify({'error': 'Empty'}), 400
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], f'image_{slot_id}.png')
 
-    file.save(filepath)
-    img = mixer.update_image(slot_id - 1, filepath)
-    img.save(filepath)
+    file.save(filepath)  # Save original
+    img_array = mixer.update_image(slot_id - 1, filepath)  # Process it
+    if img_array is not None:
+        cv2.imwrite(filepath, img_array)  # Save processed version
+
     return jsonify({'filepath': filepath})
 
 @app.route('/component/<int:slot_id>/<type>', methods=['GET'])
