@@ -32,6 +32,8 @@ function FTMixer() {
   const [images, setImages] = useState([null, null, null, null]);
   const [unifiedSize, setUnifiedSize] = useState(null);
 
+  const [regionEnable, setRegionEnable] = useState(true);
+
   // Calculate unified size whenever images change
   useEffect(() => {
     const loadedImages = images.filter((img) => img !== null);
@@ -108,20 +110,12 @@ function FTMixer() {
   );
 
   const handleResetAll = useCallback(() => {
-    setImages([null, null, null, null]);
-    setUnifiedSize(null);
-    setViewportComponents(["magnitude", "magnitude", "magnitude", "magnitude"]);
     setMagPhaseValues([50, 50, 50, 50, 50, 50, 50, 50]);
-    setRealImagValues([50, 50, 50, 50, 50, 50, 50, 50]);
-    setRegionSize([50]);
-    setUseInnerRegion(true);
-    setAutoMix(false);
   }, []);
 
   const handleResetRightPanel = useCallback(() => {
     setRealImagValues([50, 50, 50, 50, 50, 50, 50, 50]);
     setRegionSize([50]);
-    setUseInnerRegion(true);
   }, []);
 
   return (
@@ -131,7 +125,6 @@ function FTMixer() {
         <LeftPanel
           leftPanelOpen={leftPanelOpen}
           images={images}
-          unifiedSize={unifiedSize}
           magPhaseValues={magPhaseValues}
           handleImageReplace={handleImageReplace}
           handleResetAll={handleResetAll}
@@ -173,7 +166,13 @@ function FTMixer() {
                 Output B
               </button>
             </div>
-            <div className="flex-grow-1"></div>
+            <div className="flex-grow-1 d-flex justify-content-center">
+              {unifiedSize && (
+                  <p className="unified-size-info">
+                    Unified size: {unifiedSize.width} × {unifiedSize.height}px
+                  </p>
+              )}
+            </div>
             {/* Auto Mix Toggle Button */}
             <button
               className={`btn btn-sm border ${
@@ -282,6 +281,8 @@ function FTMixer() {
           setRegionSize={setRegionSize}
           handleResetRightPanel={handleResetRightPanel}
           handleRealImagSliderChange={handleRealImagSliderChange}
+          regionEnable={regionEnable}
+          setRegionEnable={setRegionEnable}
         />
       </div>
     </div>
