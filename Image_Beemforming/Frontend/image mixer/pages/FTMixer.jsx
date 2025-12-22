@@ -10,7 +10,11 @@ import { LeftPanel } from "../src/components/LeftPanel";
 function FTMixer() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [activeOutput, setActiveOutput] = useState("A");
-  const [autoMix, setAutoMix] = useState(false);
+  const [autoMix, setAutoMix] = useState(true);
+
+  // Output Images State { A: base64, B: base64 }
+  const [outputImages, setOutputImages] = useState({ A: null, B: null });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Mix Mode State
   const [mixMode, setMixMode] = useState('magnitude_phase');
@@ -22,16 +26,16 @@ function FTMixer() {
     "magnitude",
   ]);
   const [magPhaseValues, setMagPhaseValues] = useState([
-    50, 50, 50, 50, 50, 50, 50, 50,
+    0, 0, 0, 0, 0, 0, 0, 0,
   ]);
   const [realImagValues, setRealImagValues] = useState([
-    50, 50, 50, 50, 50, 50, 50, 50,
+    0, 0, 0, 0, 0, 0, 0, 0,
   ]);
 
   // Region State
   const [regionSelections, setRegionSelections] = useState(Array(8).fill(true));
   const [regionSize, setRegionSize] = useState([50]);
-  const [regionEnable, setRegionEnable] = useState(false);
+  const [regionEnable, setRegionEnable] = useState(true);
 
   const [regionRect, setRegionRect] = useState({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 });
 
@@ -145,6 +149,9 @@ function FTMixer() {
       return;
     }
 
+    const targetOutput = activeOutput; // Capture current target
+    setIsProcessing(true);
+
     const weights1 = [];
     const weights2 = [];
     const regionSettings1 = [];
@@ -176,7 +183,6 @@ function FTMixer() {
     };
 
     try {
-      console.log("Processing images");
       const response = await fetch('/api/process_ft', {
         method: 'POST',
         headers: {
@@ -187,14 +193,28 @@ function FTMixer() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log("FT Mix Response:", data);
+
+        // LOGGING FOR DEBUGGING
+        if (data.image_data) {
+          console.log(`[FTMixer] Received output image. Length: ${data.image_data.length}`);
+          console.log(`[FTMixer] Snippet: ${data.image_data.substring(0, 30)}...`);
+        } else {
+          console.warn("[FTMixer] Received empty image_data.");
+        }
+
+        setOutputImages(prev => ({
+          ...prev,
+          [targetOutput]: data.image_data
+        }));
       } else {
         console.error("FT Mix failed with status:", response.status);
       }
     } catch (e) {
       console.error("FT Mix error:", e);
+    } finally {
+      setIsProcessing(false);
     }
-  }, [mixMode, regionEnable, regionSelections, images]);
+  }, [mixMode, regionEnable, regionSelections, images, activeOutput]);
 
   // Wrapper function to handle auto-triggering based on autoMix state
   const handleAutoMixTrigger = useCallback(() => {
@@ -304,7 +324,6 @@ function FTMixer() {
 
       setImages((prev) => {
         const newImages = [...prev];
-        // Combine original imageData with the server response
         newImages[index] = {
           ...imageData,
           processedSrc: processedSrc || `/api/uploaded-image/${slotIndex}`
@@ -327,7 +346,6 @@ function FTMixer() {
   }, [viewportComponents, fetchComponent]);
 
   const handleImageLoad = useCallback((index, imageData) => {
-    // Only set state immediately if it's NOT a file upload (which handles its own state)
     if (imageData && imageData.file) {
       uploadImage(imageData, index);
     } else {
@@ -457,8 +475,13 @@ function FTMixer() {
                   <button
                       className="btn btn-sm btn-primary border me-2"
                       onClick={processFT}
+                      disabled={isProcessing}
                   >
-                    <i className="bi bi-play-fill me-1"></i>
+                    {isProcessing ? (
+                        <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    ) : (
+                        <i className="bi bi-play-fill me-1"></i>
+                    )}
                     Mix
                   </button>
               )}
@@ -523,12 +546,9 @@ function FTMixer() {
                   />
                   <OutputViewport
                       label="Output A"
-                      images={images}
-                      activeOutput={activeOutput}
-                      magPhaseValues={magPhaseValues}
-                      realImagValues={realImagValues}
-                      autoMix={autoMix && activeOutput === "A"}
-                      regionSelections={regionSelections}
+                      outputImage={outputImages.A}
+                      isActive={activeOutput === "A"}
+                      isProcessing={isProcessing && activeOutput === "A"}
                   />
                 </div>
 
@@ -574,12 +594,9 @@ function FTMixer() {
                   />
                   <OutputViewport
                       label="Output B"
-                      images={images}
-                      activeOutput={activeOutput}
-                      magPhaseValues={magPhaseValues}
-                      realImagValues={realImagValues}
-                      autoMix={autoMix && activeOutput === "B"}
-                      regionSelections={regionSelections}
+                      outputImage={outputImages.B}
+                      isActive={activeOutput === "B"}
+                      isProcessing={isProcessing && activeOutput === "B"}
                   />
                 </div>
               </div>
