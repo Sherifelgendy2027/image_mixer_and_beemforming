@@ -17,6 +17,11 @@ export default defineConfig({
         // e.g., /api/upload/1 -> /upload/1
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // Proxy static file requests
+      '/static': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      }
     },
   },
 })
