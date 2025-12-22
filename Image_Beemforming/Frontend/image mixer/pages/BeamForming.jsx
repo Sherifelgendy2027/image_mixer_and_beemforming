@@ -11,13 +11,18 @@ import VisualizationPanel from "../src/components/VisualizationPanel";
 
 // Import constants and utils
 import { defaultUnit, scenarios } from "../src/constants/beamforming";
-import { simulateBeamforming } from "../src/utils/beamforming";
+import {
+  simulateBeamforming,
+  validateApiResponse,
+} from "../src/utils/beamforming";
 
 function Beamforming() {
   const [units, setUnits] = useState([{ ...defaultUnit }]);
   const [selectedScenario, setSelectedScenario] = useState("5g");
   const [isProcessing, setIsProcessing] = useState(false);
   const [heatmapData, setHeatmapData] = useState(null);
+  const [apiStatus, setApiStatus] = useState("disconnected"); // 'disconnected', 'connected', 'error'
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Chart refs
   const beamChartRef = useRef(null);
@@ -28,6 +33,34 @@ function Beamforming() {
   const beamChartInstance = useRef(null);
   const polarChartInstance = useRef(null);
   const geoChartInstance = useRef(null);
+
+  // Test API connection on mount
+  useEffect(() => {
+    testApiConnection();
+  }, []);
+
+  const testApiConnection = async () => {
+    try {
+      const testPayload = { arrays: [defaultUnit] };
+      const response = await fetch("http://localhost:5000/simulate_beam", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(testPayload),
+      });
+
+      if (response.ok) {
+        setApiStatus("connected");
+        setErrorMessage("");
+      } else {
+        setApiStatus("error");
+        setErrorMessage("API server responded with error");
+      }
+    } catch (error) {
+      setApiStatus("disconnected");
+      setErrorMessage("Cannot connect to API server. Using mock data.");
+      console.log("API Connection Error:", error.message);
+    }
+  };
 
   // Initialize charts
   useEffect(() => {
@@ -49,14 +82,15 @@ function Beamforming() {
         beamChartInstance.current = new Chart(beamCtx, {
           type: "line",
           data: {
-            labels: [],
+            labels: Array.from({ length: 181 }, (_, i) => i - 90),
             datasets: [
               {
                 label: "Gain (dB)",
-                data: [],
+                data: Array(181).fill(-60),
                 borderColor: "#4fa08b",
                 borderWidth: 2,
                 pointRadius: 0,
+                tension: 0.1,
               },
             ],
           },
@@ -65,17 +99,56 @@ function Beamforming() {
             maintainAspectRatio: false,
             scales: {
               x: {
-                title: { display: true, text: "Angle (deg)", color: "#aaa" },
-                ticks: { color: "#aaa" },
+                title: {
+                  display: true,
+                  text: "Angle (degrees)",
+                  color: "#aaa",
+                  font: { size: 12 },
+                },
+                ticks: {
+                  color: "#aaa",
+                  stepSize: 30,
+                  callback: function (value) {
+                    return value + "°";
+                  },
+                },
+                grid: { color: "rgba(255,255,255,0.1)" },
+                min: -90,
+                max: 90,
               },
               y: {
-                title: { display: true, text: "Magnitude (dB)", color: "#aaa" },
+                title: {
+                  display: true,
+                  text: "Magnitude (dB)",
+                  color: "#aaa",
+                  font: { size: 12 },
+                },
                 min: -60,
                 max: 0,
-                ticks: { color: "#aaa" },
+                ticks: {
+                  color: "#aaa",
+                  stepSize: 10,
+                  callback: function (value) {
+                    return value + " dB";
+                  },
+                },
+                grid: { color: "rgba(255,255,255,0.1)" },
               },
             },
-            plugins: { legend: { display: false } },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                mode: "index",
+                intersect: false,
+                callbacks: {
+                  label: function (context) {
+                    return `Angle: ${
+                      context.label
+                    }°, Gain: ${context.parsed.y.toFixed(2)} dB`;
+                  },
+                },
+              },
+            },
           },
         });
       }
@@ -86,11 +159,11 @@ function Beamforming() {
         polarChartInstance.current = new Chart(polarCtx, {
           type: "radar",
           data: {
-            labels: [],
+            labels: Array.from({ length: 360 }, (_, i) => i),
             datasets: [
               {
                 label: "Gain (dB)",
-                data: [],
+                data: Array(360).fill(-60),
                 borderColor: "#4fa08b",
                 borderWidth: 2,
                 pointRadius: 0,
@@ -104,15 +177,43 @@ function Beamforming() {
             maintainAspectRatio: false,
             scales: {
               r: {
-                angleLines: { color: "#333" },
-                grid: { color: "#333" },
+                angleLines: {
+                  color: "rgba(255, 255, 255, 0.2)",
+                  lineWidth: 1,
+                },
+                grid: {
+                  color: "rgba(255, 255, 255, 0.1)",
+                  circular: true,
+                },
                 pointLabels: { display: false },
-                suggestedMin: -60,
-                suggestedMax: 0,
-                ticks: { display: false },
+                min: -60,
+                max: 0,
+                ticks: {
+                  display: true,
+                  stepSize: 10,
+                  backdropColor: "transparent",
+                  color: "#aaa",
+                  font: { size: 10 },
+                },
               },
             },
-            plugins: { legend: { display: false } },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    const angle = context.dataIndex;
+                    const gain = context.raw;
+                    return `Angle: ${angle}°, Gain: ${gain.toFixed(2)} dB`;
+                  },
+                },
+              },
+            },
+            elements: {
+              line: {
+                tension: 0,
+              },
+            },
           },
         });
       }
@@ -125,9 +226,13 @@ function Beamforming() {
           data: {
             datasets: [
               {
-                label: "Elements",
-                data: [],
+                label: "Array Elements",
+                data: [{ x: 0, y: 0 }],
                 backgroundColor: "#4fa08b",
+                borderColor: "#ffffff",
+                borderWidth: 1,
+                pointRadius: 6,
+                pointHoverRadius: 8,
               },
             ],
           },
@@ -138,15 +243,53 @@ function Beamforming() {
               x: {
                 type: "linear",
                 position: "bottom",
-                title: { display: true, text: "X (m)", color: "#aaa" },
-                ticks: { color: "#aaa" },
+                title: {
+                  display: true,
+                  text: "X Position (meters)",
+                  color: "#aaa",
+                  font: { size: 12 },
+                },
+                ticks: {
+                  color: "#aaa",
+                  callback: function (value) {
+                    return value.toFixed(2) + " m";
+                  },
+                },
+                grid: { color: "rgba(255,255,255,0.1)" },
+                min: -2,
+                max: 2,
               },
               y: {
-                title: { display: true, text: "Y (m)", color: "#aaa" },
-                ticks: { color: "#aaa" },
+                title: {
+                  display: true,
+                  text: "Y Position (meters)",
+                  color: "#aaa",
+                  font: { size: 12 },
+                },
+                ticks: {
+                  color: "#aaa",
+                  callback: function (value) {
+                    return value.toFixed(2) + " m";
+                  },
+                },
+                grid: { color: "rgba(255,255,255,0.1)" },
+                min: -2,
+                max: 2,
               },
             },
-            plugins: { legend: { display: false } },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    const point = context.raw;
+                    return `Element ${context.dataIndex}: (${point.x.toFixed(
+                      3
+                    )} m, ${point.y.toFixed(3)} m)`;
+                  },
+                },
+              },
+            },
           },
         });
       }
@@ -156,18 +299,14 @@ function Beamforming() {
 
     // Cleanup on unmount
     return () => {
-      if (beamChartInstance.current) {
-        beamChartInstance.current.destroy();
-        beamChartInstance.current = null;
-      }
-      if (polarChartInstance.current) {
-        polarChartInstance.current.destroy();
-        polarChartInstance.current = null;
-      }
-      if (geoChartInstance.current) {
-        geoChartInstance.current.destroy();
-        geoChartInstance.current = null;
-      }
+      [beamChartInstance, polarChartInstance, geoChartInstance].forEach(
+        (instance) => {
+          if (instance.current) {
+            instance.current.destroy();
+            instance.current = null;
+          }
+        }
+      );
     };
   }, []);
 
@@ -188,6 +327,10 @@ function Beamforming() {
 
   // Remove unit
   const removeUnit = (index) => {
+    if (units.length <= 1) {
+      alert("At least one array unit is required");
+      return;
+    }
     const newUnits = units.filter((_, i) => i !== index);
     setUnits(newUnits);
     requestSimulation(newUnits);
@@ -200,65 +343,145 @@ function Beamforming() {
     if (key === "type") {
       newUnits[index][key] = value;
     } else {
-      newUnits[index][key] = parseFloat(value);
+      const numValue = parseFloat(value);
+      newUnits[index][key] = isNaN(numValue) ? 0 : numValue;
+
+      // Validate ranges
+      if (key === "steering" && (numValue < -90 || numValue > 90)) {
+        alert("Steering angle must be between -90 and 90 degrees");
+        return;
+      }
+      if (key === "frequency" && numValue <= 0) {
+        alert("Frequency must be positive");
+        return;
+      }
+      if (key === "elements" && (numValue < 1 || !Number.isInteger(numValue))) {
+        alert("Number of elements must be a positive integer");
+        return;
+      }
     }
 
     setUnits(newUnits);
-    requestSimulation(newUnits);
+
+    // Auto-simulate if auto-update is enabled
+    if (true) {
+      // You can connect this to a state variable for auto-update toggle
+      requestSimulation(newUnits);
+    }
   };
 
   // Request simulation
   const requestSimulation = async (unitsToSimulate = units) => {
     setIsProcessing(true);
-    const payload = { arrays: unitsToSimulate };
+    setErrorMessage("");
+
+    const payload = {
+      arrays: unitsToSimulate.map((unit) => ({
+        frequency: unit.frequency,
+        elements: unit.elements,
+        spacing: unit.spacing,
+        steering: unit.steering,
+        type: unit.type,
+        curvature: unit.curvature,
+        x_pos: unit.x_pos,
+        y_pos: unit.y_pos,
+      })),
+    };
+
+    console.log("Sending simulation request:", payload);
 
     try {
-      const mockResponse = await simulateBeamforming(payload);
+      const response = await simulateBeamforming(payload);
+
+      // Validate response
+      validateApiResponse(response);
 
       // Update heatmap
-      if (mockResponse.heatmap) {
-        setHeatmapData(mockResponse.heatmap);
+      if (response.heatmap) {
+        setHeatmapData(response.heatmap);
+      } else {
+        setHeatmapData(null);
       }
 
       // Update rectangular chart
-      if (beamChartInstance.current && mockResponse.beam_angles) {
-        beamChartInstance.current.data.labels = mockResponse.beam_angles.map(
-          (a) => Math.round(a)
-        );
-        beamChartInstance.current.data.datasets[0].data =
-          mockResponse.beam_values;
+      if (
+        beamChartInstance.current &&
+        response.beam_angles &&
+        response.beam_values
+      ) {
+        beamChartInstance.current.data.labels = response.beam_angles;
+        beamChartInstance.current.data.datasets[0].data = response.beam_values;
+
+        // Find main lobe for better scaling
+        const maxGain = Math.max(...response.beam_values);
+        if (maxGain > -10) {
+          beamChartInstance.current.options.scales.y.max =
+            Math.ceil(maxGain / 10) * 10;
+        }
+
         beamChartInstance.current.update("none");
       }
 
       // Update polar chart
-      if (polarChartInstance.current && mockResponse.beam_angles) {
+      if (
+        polarChartInstance.current &&
+        response.beam_angles &&
+        response.beam_values
+      ) {
+        // Convert -90 to 90 degrees to 0 to 360 degrees for polar chart
         const polarData = new Array(360).fill(-60);
-        const polarLabels = new Array(360).fill("");
-
-        mockResponse.beam_angles.forEach((angle, i) => {
-          let idx = Math.round(angle);
-          if (idx < 0) idx += 360;
-          if (idx >= 0 && idx < 360) {
-            polarData[idx] = mockResponse.beam_values[i];
+        response.beam_angles.forEach((angle, i) => {
+          let polarAngle = Math.round(angle);
+          if (polarAngle < 0) polarAngle += 360;
+          if (polarAngle >= 0 && polarAngle < 360) {
+            polarData[polarAngle] = response.beam_values[i];
           }
         });
 
-        polarChartInstance.current.data.labels = polarLabels;
         polarChartInstance.current.data.datasets[0].data = polarData;
         polarChartInstance.current.update("none");
       }
 
       // Update geometry chart
-      if (geoChartInstance.current && mockResponse.geometry_x) {
-        const points = mockResponse.geometry_x.map((x, i) => ({
+      if (
+        geoChartInstance.current &&
+        response.geometry_x &&
+        response.geometry_y
+      ) {
+        const points = response.geometry_x.map((x, i) => ({
           x: x,
-          y: mockResponse.geometry_y[i],
+          y: response.geometry_y[i],
         }));
+
+        // Update chart bounds based on data
+        const allX = points.map((p) => p.x);
+        const allY = points.map((p) => p.y);
+        const xMin = Math.min(...allX);
+        const xMax = Math.max(...allX);
+        const yMin = Math.min(...allY);
+        const yMax = Math.max(...allY);
+
+        // Add padding to bounds
+        const xPadding = Math.max(0.1, (xMax - xMin) * 0.2);
+        const yPadding = Math.max(0.1, (yMax - yMin) * 0.2);
+
+        geoChartInstance.current.options.scales.x.min = xMin - xPadding;
+        geoChartInstance.current.options.scales.x.max = xMax + xPadding;
+        geoChartInstance.current.options.scales.y.min = yMin - yPadding;
+        geoChartInstance.current.options.scales.y.max = yMax + yPadding;
+
         geoChartInstance.current.data.datasets[0].data = points;
         geoChartInstance.current.update();
       }
+
+      // Update API status
+      if (apiStatus === "disconnected" && !response.heatmap?.includes("mock")) {
+        setApiStatus("connected");
+      }
     } catch (error) {
       console.error("Simulation error:", error);
+      setErrorMessage(error.message || "Failed to simulate beamforming");
+      setApiStatus("error");
     } finally {
       setIsProcessing(false);
     }
@@ -279,9 +502,47 @@ function Beamforming() {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
+  // Add a quick actions bar
+  const quickActions = [
+    { label: "Clear All", icon: "bi-trash", action: () => loadScenario("5g") },
+    { label: "Add Unit", icon: "bi-plus-circle", action: addUnit },
+    { label: "Test API", icon: "bi-wifi", action: testApiConnection },
+  ];
+
   return (
     <div className="beamforming-page">
       <div className="beamforming-layout">
+        {/* API Status Indicator */}
+        <div className={`api-status-indicator ${apiStatus}`}>
+          <div className="api-status-dot" />
+          <span className="api-status-text">
+            API:{" "}
+            {apiStatus === "connected"
+              ? "Connected"
+              : apiStatus === "disconnected"
+              ? "Using Mock Data"
+              : "Error"}
+          </span>
+          {errorMessage && (
+            <span className="api-error-message"> - {errorMessage}</span>
+          )}
+        </div>
+
+        {/* Quick Actions Bar */}
+        <div className="quick-actions-bar">
+          {quickActions.map((action, index) => (
+            <button
+              key={index}
+              className="quick-action-btn"
+              onClick={action.action}
+              title={action.label}
+            >
+              <i className={`bi ${action.icon}`} />
+              <span className="quick-action-label">{action.label}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Left Control Sidebar */}
         <div className="control-sidebar">
           <div className="sidebar-content">
@@ -306,6 +567,7 @@ function Beamforming() {
                     } mb-1`}
                     onClick={() => loadScenario("5g")}
                   >
+                    <i className="bi bi-wifi me-2"></i>
                     5G Array
                   </button>
                   <button
@@ -316,6 +578,7 @@ function Beamforming() {
                     } mb-1`}
                     onClick={() => loadScenario("ultrasound")}
                   >
+                    <i className="bi bi-soundwave me-2"></i>
                     Ultrasound
                   </button>
                   <button
@@ -326,6 +589,7 @@ function Beamforming() {
                     }`}
                     onClick={() => loadScenario("ablation")}
                   >
+                    <i className="bi bi-thermometer-high me-2"></i>
                     Ablation
                   </button>
                 </div>
@@ -354,12 +618,15 @@ function Beamforming() {
                       index={index}
                       onUpdate={updateUnit}
                       onRemove={removeUnit}
+                      isProcessing={isProcessing}
                     />
                   ))}
                 </div>
                 <button
                   className="btn btn-outline-primary w-100 mt-2"
                   onClick={addUnit}
+                  disabled={isProcessing || units.length >= 5}
+                  title={units.length >= 5 ? "Maximum 5 units allowed" : ""}
                 >
                   <i className="bi bi-plus-circle me-2"></i>
                   Add Unit
@@ -381,10 +648,19 @@ function Beamforming() {
               <div className="panel-card">
                 <div className="switch-group">
                   <Label className="switch-label">Show Heatmap</Label>
-                  <Switch checked={true} onCheckedChange={() => {}} />
+                  <Switch
+                    checked={true}
+                    onCheckedChange={(checked) => {
+                      if (!checked) setHeatmapData(null);
+                    }}
+                  />
                 </div>
                 <div className="switch-group">
                   <Label className="switch-label">Auto Update</Label>
+                  <Switch checked={true} onCheckedChange={() => {}} />
+                </div>
+                <div className="switch-group">
+                  <Label className="switch-label">Show Elements</Label>
                   <Switch checked={true} onCheckedChange={() => {}} />
                 </div>
               </div>
@@ -410,13 +686,23 @@ function Beamforming() {
                 </>
               )}
             </button>
-            <button
-              onClick={() => loadScenario("5g")}
-              className="btn btn-outline-primary w-100"
-            >
-              <i className="bi bi-arrow-clockwise me-2"></i>
-              Reset
-            </button>
+            <div className="d-flex gap-2">
+              <button
+                onClick={() => loadScenario("5g")}
+                className="btn btn-outline-primary flex-grow-1"
+                disabled={isProcessing}
+              >
+                <i className="bi bi-arrow-clockwise me-2"></i>
+                Reset
+              </button>
+              <button
+                onClick={testApiConnection}
+                className="btn btn-outline-secondary"
+                title="Test API Connection"
+              >
+                <i className="bi bi-wifi"></i>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -424,37 +710,49 @@ function Beamforming() {
         <div className="main-visualization">
           {/* Visualization Grid */}
           <div className="visualization-grid">
-            <VisualizationPanel title="Beam Pattern (Rectangular)">
+            <VisualizationPanel
+              title="Beam Pattern (Rectangular)"
+              loading={isProcessing}
+            >
               <div className="chart-container">
                 <canvas ref={beamChartRef} id="beamChart"></canvas>
               </div>
             </VisualizationPanel>
 
-            <VisualizationPanel title="Beam Pattern (Polar)">
+            <VisualizationPanel
+              title="Beam Pattern (Polar)"
+              loading={isProcessing}
+            >
               <div className="chart-container">
                 <canvas ref={polarChartRef} id="polarChart"></canvas>
               </div>
             </VisualizationPanel>
 
-            <VisualizationPanel title="Array Geometry">
+            <VisualizationPanel title="Array Geometry" loading={isProcessing}>
               <div className="chart-container">
                 <canvas ref={geoChartRef} id="geoChart"></canvas>
               </div>
             </VisualizationPanel>
 
-            <VisualizationPanel title="Heatmap">
+            <VisualizationPanel
+              title="Interference Pattern Heatmap"
+              loading={isProcessing}
+            >
               <div className="heatmap-container">
                 {heatmapData ? (
                   <img
                     src={heatmapData}
                     alt="Beamforming Heatmap"
                     className="heatmap-img"
+                    onError={() => setHeatmapData(null)}
                   />
                 ) : (
                   <div className="placeholder-content">
                     <i className="bi bi-grid-3x3 placeholder-icon"></i>
                     <span className="placeholder-text">
-                      Heatmap will appear here
+                      {isProcessing
+                        ? "Generating heatmap..."
+                        : "Heatmap will appear here"}
                     </span>
                   </div>
                 )}
@@ -487,6 +785,10 @@ function Beamforming() {
                 <span className="status-value">
                   {units.reduce((sum, unit) => sum + unit.elements, 0)}
                 </span>
+              </div>
+              <div className="status-item">
+                <span className="status-label">Frequency: </span>
+                <span className="status-value">{units[0]?.frequency} MHz</span>
               </div>
               <div className="status-item">
                 <span className="status-label">Scenario: </span>
