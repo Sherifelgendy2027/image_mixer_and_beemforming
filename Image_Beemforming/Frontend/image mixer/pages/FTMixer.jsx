@@ -168,9 +168,9 @@ function FTMixer() {
             </div>
             <div className="flex-grow-1 d-flex justify-content-center">
               {unifiedSize && (
-                  <p className="unified-size-info">
-                    Unified size: {unifiedSize.width} × {unifiedSize.height}px
-                  </p>
+                <p className="unified-size-info">
+                  Unified size: {unifiedSize.width} × {unifiedSize.height}px
+                </p>
               )}
             </div>
             {/* Auto Mix Toggle Button */}

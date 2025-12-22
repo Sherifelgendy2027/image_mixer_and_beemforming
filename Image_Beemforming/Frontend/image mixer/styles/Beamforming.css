@@ -385,3 +385,243 @@
   color: #fff;
   box-shadow: 0 0 0 0.25rem rgba(79, 160, 139, 0.25);
 }
+
+/* Add these to your existing Beamforming.css file */
+
+/* API Status Indicator */
+.api-status-indicator {
+  position: fixed;
+  top: 10px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(30, 30, 40, 0.9);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.api-status-indicator.connected {
+  border-color: #4fa08b;
+}
+
+.api-status-indicator.disconnected {
+  border-color: #ffa726;
+}
+
+.api-status-indicator.error {
+  border-color: #ff6b6b;
+}
+
+.api-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.api-status-indicator.connected .api-status-dot {
+  background: #4fa08b;
+  box-shadow: 0 0 8px #4fa08b;
+  animation: pulse 2s infinite;
+}
+
+.api-status-indicator.disconnected .api-status-dot {
+  background: #ffa726;
+  box-shadow: 0 0 8px #ffa726;
+}
+
+.api-status-indicator.error .api-status-dot {
+  background: #ff6b6b;
+  box-shadow: 0 0 8px #ff6b6b;
+  animation: pulse 1s infinite;
+}
+
+.api-status-text {
+  color: #e0e0e0;
+}
+
+.api-error-message {
+  color: #ff6b6b;
+  font-size: 11px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Quick Actions Bar */
+.quick-actions-bar {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 1000;
+  background: rgba(30, 30, 40, 0.9);
+  border-radius: 12px;
+  padding: 8px 12px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(79, 160, 139, 0.2);
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid rgba(79, 160, 139, 0.3);
+  border-radius: 8px;
+  color: #e0e0e0;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+  background: rgba(79, 160, 139, 0.1);
+  border-color: #4fa08b;
+  transform: translateY(-1px);
+}
+
+.quick-action-btn i {
+  font-size: 14px;
+}
+
+.quick-action-label {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .quick-action-label {
+    display: inline;
+  }
+}
+
+/* Loading state for charts */
+.chart-container.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 15, 0.7);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+}
+
+.chart-container.loading::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(79, 160, 139, 0.3);
+  border-top-color: #4fa08b;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 1001;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Enhanced tooltip for charts */
+.chartjs-tooltip {
+  background: rgba(30, 30, 40, 0.95) !important;
+  border: 1px solid #4fa08b !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Heatmap loading state */
+.heatmap-container.loading {
+  position: relative;
+}
+
+.heatmap-container.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 15, 0.8);
+  backdrop-filter: blur(3px);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heatmap-container.loading::before {
+  content: 'Generating Heatmap...';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #4fa08b;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 1001;
+}
+
+/* Unit Card disabled state */
+.unit-card.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Responsive improvements */
+@media (max-width: 1400px) {
+  .visualization-grid {
+    gap: 15px;
+    padding: 15px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .visualization-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, minmax(300px, 1fr));
+  }
+  
+  .quick-actions-bar {
+    top: 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .status-values {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  
+  .quick-actions-bar {
+    top: 50px;
+  }
+  
+  .api-status-indicator {
+    top: 10px;
+    right: 10px;
+    max-width: 200px;
+  }
+}
