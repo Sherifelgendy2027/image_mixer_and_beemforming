@@ -18,9 +18,10 @@ export const InputViewport = React.memo(
          regionEnable,
          regionRect,
          onRegionChange,
-         useInnerRegion,
+         onRegionInteractionEnd, // New prop for handling mouse up events
+         regionSelections,
          // Disable Logic Prop
-         mixMode // 'magnitude_phase' | 'real_imaginary'
+         mixMode
      }) => {
         const fileInputRef = useRef(null);
         const ftContainerRef = useRef(null);
@@ -100,6 +101,24 @@ export const InputViewport = React.memo(
             }
             return false;
         };
+
+        // Determine if the region overlay should show "Inner" or "Outer"
+        let useInnerRegion = true;
+        if (regionEnable && regionSelections) {
+            let compIndex = -1;
+
+            if (mixMode === 'magnitude_phase') {
+                if (component === 'magnitude') compIndex = 0;
+                else if (component === 'phase') compIndex = 1;
+            } else if (mixMode === 'real_imaginary') {
+                if (component === 'real') compIndex = 0;
+                else if (component === 'imaginary') compIndex = 1;
+            }
+
+            if (compIndex !== -1) {
+                useInnerRegion = regionSelections[index * 2 + compIndex];
+            }
+        }
 
         return (
             <div className="viewport-container" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
@@ -202,15 +221,11 @@ export const InputViewport = React.memo(
                     </div>
 
                     {/* FT Component - Right Side */}
-                    {/* Note: This container has overflow:visible via .ft-component class to allow handles to extend */}
                     <div
                         className="viewport-image-container ft-component"
                         style={{ position: 'relative' }}
                         ref={ftContainerRef}
                     >
-                        {/* INNER CLIPPER: Absolutely positioned to fill parent and CLIP content.
-                            This ensures the image doesn't bleed out even if parent has overflow:visible.
-                        */}
                         <div style={{
                             position: 'absolute',
                             top: 0,
@@ -265,13 +280,12 @@ export const InputViewport = React.memo(
                             )}
                         </div>
 
-                        {/* REGION OVERLAY: Sits outside the inner clipper div but inside the relative container.
-                            This allows its handles to extend beyond the container bounds (overflow:visible on parent).
-                        */}
+                        {/* REGION OVERLAY */}
                         {componentImage && regionEnable && (
                             <RegionOverlay
                                 rect={regionRect}
                                 onChange={onRegionChange}
+                                onInteractionEnd={onRegionInteractionEnd}
                                 containerRef={ftContainerRef}
                                 isInner={useInnerRegion}
                             />

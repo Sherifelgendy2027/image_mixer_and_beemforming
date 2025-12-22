@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import "../styles/FTMixer.css";
 
 // Import components
@@ -12,7 +12,7 @@ function FTMixer() {
   const [activeOutput, setActiveOutput] = useState("A");
   const [autoMix, setAutoMix] = useState(false);
 
-  // Mix Mode State: 'magnitude_phase' | 'real_imaginary'
+  // Mix Mode State
   const [mixMode, setMixMode] = useState('magnitude_phase');
 
   const [viewportComponents, setViewportComponents] = useState([
@@ -29,11 +29,10 @@ function FTMixer() {
   ]);
 
   // Region State
-  const [useInnerRegion, setUseInnerRegion] = useState(true);
-  const [regionSize, setRegionSize] = useState([50]); // Keeps track of slider value
-  const [regionEnable, setRegionEnable] = useState(false); // Default disabled
+  const [regionSelections, setRegionSelections] = useState(Array(8).fill(true));
+  const [regionSize, setRegionSize] = useState([50]);
+  const [regionEnable, setRegionEnable] = useState(false);
 
-  // Unified Region Rect State (Normalized 0-1)
   const [regionRect, setRegionRect] = useState({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 });
 
   // Image state
@@ -45,6 +44,16 @@ function FTMixer() {
   const [componentLoadingStates, setComponentLoadingStates] = useState([false, false, false, false]);
 
   const [unifiedSize, setUnifiedSize] = useState(null);
+
+  // REFS for values that change rapidly during interaction
+  const magPhaseValuesRef = useRef(magPhaseValues);
+  const realImagValuesRef = useRef(realImagValues);
+  const regionRectRef = useRef(regionRect);
+
+  // Sync refs with state
+  useEffect(() => { magPhaseValuesRef.current = magPhaseValues; }, [magPhaseValues]);
+  useEffect(() => { realImagValuesRef.current = realImagValues; }, [realImagValues]);
+  useEffect(() => { regionRectRef.current = regionRect; }, [regionRect]);
 
   // Calculate unified size whenever images change
   useEffect(() => {
@@ -120,10 +129,7 @@ function FTMixer() {
     const isDifferent = nextComponents.some((comp, i) => comp !== viewportComponents[i]);
 
     if (isDifferent) {
-      // Update state
       setViewportComponents(nextComponents);
-
-      // Trigger fetches for changed components if an image exists in that slot
       nextComponents.forEach((comp, index) => {
         if (comp !== viewportComponents[index] && images[index]) {
           fetchComponent(index + 1, comp);
@@ -132,25 +138,90 @@ function FTMixer() {
     }
   }, [mixMode, regionEnable, viewportComponents, images, fetchComponent]);
 
-  // Handle Region Slider Change
-  // SCALES region relative to its current center
+  // API Process Function
+  const processFT = useCallback(async () => {
+    // GUARD: Check if at least one image is uploaded.
+    if (!images.some(img => img !== null)) {
+      return;
+    }
+
+    const weights1 = [];
+    const weights2 = [];
+    const regionSettings1 = [];
+    const regionSettings2 = [];
+
+    const sourceValues = mixMode === 'magnitude_phase' ? magPhaseValuesRef.current : realImagValuesRef.current;
+
+    for(let i = 0; i < 4; i++) {
+      weights1.push(sourceValues[i] / 100.0);
+      weights2.push(sourceValues[i+4] / 100.0);
+
+      regionSettings1.push(regionSelections[i*2] ? 'inner' : 'outer');
+      regionSettings2.push(regionSelections[i*2+1] ? 'inner' : 'outer');
+    }
+
+    const payload = {
+      mode: mixMode,
+      weights_1: weights1,
+      weights_2: weights2,
+      region_settings_1: regionSettings1,
+      region_settings_2: regionSettings2,
+      region_enabled: regionEnable,
+      region: {
+        x: regionRectRef.current.x,
+        y: regionRectRef.current.y,
+        width: regionRectRef.current.w,
+        height: regionRectRef.current.h
+      }
+    };
+
+    try {
+      console.log("Processing images");
+      const response = await fetch('/api/process_ft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("FT Mix Response:", data);
+      } else {
+        console.error("FT Mix failed with status:", response.status);
+      }
+    } catch (e) {
+      console.error("FT Mix error:", e);
+    }
+  }, [mixMode, regionEnable, regionSelections, images]);
+
+  // Wrapper function to handle auto-triggering based on autoMix state
+  const handleAutoMixTrigger = useCallback(() => {
+    if (autoMix) {
+      processFT();
+    }
+  }, [autoMix, processFT]);
+
+  // Auto-trigger effect for state changes that are discrete "settings"
+  // NOW CONDITIONED ON autoMix
+  useEffect(() => {
+    if (autoMix) {
+      processFT();
+    }
+  }, [mixMode, regionEnable, regionSelections, images, processFT, autoMix]);
+
+
   const handleRegionSliderChange = useCallback((value) => {
     const sizePercent = value[0];
-    setRegionSize(value); // Update slider UI
+    setRegionSize(value);
 
     setRegionRect((currentRect) => {
       const newSize = sizePercent / 100;
-
-      // Calculate current center
       const cx = currentRect.x + currentRect.w / 2;
       const cy = currentRect.y + currentRect.h / 2;
-
-      // Calculate new top-left based on center and new size
       let newX = cx - newSize / 2;
       let newY = cy - newSize / 2;
-
-      // Clamp to bounds to ensure it stays inside [0,1]
-      // Max possible x is 1 - newSize, min is 0
       newX = Math.max(0, Math.min(newX, 1 - newSize));
       newY = Math.max(0, Math.min(newY, 1 - newSize));
 
@@ -163,12 +234,18 @@ function FTMixer() {
     });
   }, []);
 
-  // Handle Manual Region Interaction (Drag/Resize)
   const handleRegionManualChange = useCallback((newRect) => {
     setRegionRect(newRect);
-    // Update slider to match the max dimension of the new rect roughly
     const maxDim = Math.max(newRect.w, newRect.h);
     setRegionSize([Math.round(maxDim * 100)]);
+  }, []);
+
+  const handleRegionSelectionChange = useCallback((index, isInner) => {
+    setRegionSelections((prev) => {
+      const newSel = [...prev];
+      newSel[index] = isInner;
+      return newSel;
+    });
   }, []);
 
   const handleComponentChange = useCallback((index, value) => {
@@ -199,15 +276,17 @@ function FTMixer() {
     });
   }, []);
 
-  const uploadImage = useCallback(async (file, slotIndex) => {
+  const uploadImage = useCallback(async (imageData, index) => {
+    const slotIndex = index + 1;
+
     setLoadingStates(prev => {
       const newStates = [...prev];
-      newStates[slotIndex - 1] = true;
+      newStates[index] = true;
       return newStates;
     });
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", imageData.file);
 
     try {
       const response = await fetch(`/api/upload/${slotIndex}`, {
@@ -225,16 +304,15 @@ function FTMixer() {
 
       setImages((prev) => {
         const newImages = [...prev];
-        if (newImages[slotIndex - 1]) {
-          newImages[slotIndex - 1] = {
-            ...newImages[slotIndex - 1],
-            processedSrc: processedSrc || `/api/uploaded-image/${slotIndex}`
-          };
-        }
+        // Combine original imageData with the server response
+        newImages[index] = {
+          ...imageData,
+          processedSrc: processedSrc || `/api/uploaded-image/${slotIndex}`
+        };
         return newImages;
       });
 
-      const currentComponentType = viewportComponents[slotIndex - 1];
+      const currentComponentType = viewportComponents[index];
       await fetchComponent(slotIndex, currentComponentType);
 
     } catch (error) {
@@ -242,22 +320,23 @@ function FTMixer() {
     } finally {
       setLoadingStates(prev => {
         const newStates = [...prev];
-        newStates[slotIndex - 1] = false;
+        newStates[index] = false;
         return newStates;
       });
     }
   }, [viewportComponents, fetchComponent]);
 
   const handleImageLoad = useCallback((index, imageData) => {
+    // Only set state immediately if it's NOT a file upload (which handles its own state)
     if (imageData && imageData.file) {
-      uploadImage(imageData.file, index + 1);
+      uploadImage(imageData, index);
+    } else {
+      setImages((prev) => {
+        const newImages = [...prev];
+        newImages[index] = imageData;
+        return newImages;
+      });
     }
-
-    setImages((prev) => {
-      const newImages = [...prev];
-      newImages[index] = imageData;
-      return newImages;
-    });
   }, [uploadImage]);
 
   const handleImageReplace = useCallback(
@@ -308,27 +387,26 @@ function FTMixer() {
               images={images}
               handleImageReplace={handleImageReplace}
 
-              // Mix Mode Props
               mixMode={mixMode}
               setMixMode={setMixMode}
 
-              // Mag/Phase Props
               magPhaseValues={magPhaseValues}
               handleMagPhaseSliderChange={handleMagPhaseSliderChange}
               handleResetMagPhase={handleResetMagPhase}
 
-              // Real/Imag Props
               realImagValues={realImagValues}
               handleRealImagSliderChange={handleRealImagSliderChange}
               handleResetRealImag={handleResetRealImag}
 
-              // Region Props
-              useInnerRegion={useInnerRegion}
+              regionSelections={regionSelections}
+              setRegionSelection={handleRegionSelectionChange}
               regionSize={regionSize}
-              setUseInnerRegion={setUseInnerRegion}
               setRegionSize={handleRegionSliderChange}
               regionEnable={regionEnable}
               setRegionEnable={setRegionEnable}
+
+              // Pass the auto-trigger wrapper instead of direct processFT
+              onInteractionEnd={handleAutoMixTrigger}
           />
 
           {/* Toggle Left Panel */}
@@ -373,7 +451,18 @@ function FTMixer() {
                     </p>
                 )}
               </div>
-              {/* Auto Mix Toggle Button */}
+
+              {/* Manual Mix Button - Only visible when Auto Mix is OFF */}
+              {!autoMix && (
+                  <button
+                      className="btn btn-sm btn-primary border me-2"
+                      onClick={processFT}
+                  >
+                    <i className="bi bi-play-fill me-1"></i>
+                    Mix
+                  </button>
+              )}
+
               <button
                   className={`btn btn-smQB border ${
                       autoMix ? "btn-success" : "btn-outline-secondary"
@@ -406,12 +495,11 @@ function FTMixer() {
                       isLoading={loadingStates[0]}
                       componentImage={componentImages[0]}
                       isComponentLoading={componentLoadingStates[0]}
-                      // Region Props
                       regionEnable={regionEnable}
                       regionRect={regionRect}
                       onRegionChange={handleRegionManualChange}
-                      useInnerRegion={useInnerRegion}
-                      // Disable logic
+                      onRegionInteractionEnd={handleAutoMixTrigger}
+                      regionSelections={regionSelections}
                       mixMode={mixMode}
                   />
                   <InputViewport
@@ -426,12 +514,11 @@ function FTMixer() {
                       isLoading={loadingStates[1]}
                       componentImage={componentImages[1]}
                       isComponentLoading={componentLoadingStates[1]}
-                      // Region Props
                       regionEnable={regionEnable}
                       regionRect={regionRect}
                       onRegionChange={handleRegionManualChange}
-                      useInnerRegion={useInnerRegion}
-                      // Disable logic
+                      onRegionInteractionEnd={handleAutoMixTrigger}
+                      regionSelections={regionSelections}
                       mixMode={mixMode}
                   />
                   <OutputViewport
@@ -441,6 +528,7 @@ function FTMixer() {
                       magPhaseValues={magPhaseValues}
                       realImagValues={realImagValues}
                       autoMix={autoMix && activeOutput === "A"}
+                      regionSelections={regionSelections}
                   />
                 </div>
 
@@ -458,12 +546,11 @@ function FTMixer() {
                       isLoading={loadingStates[2]}
                       componentImage={componentImages[2]}
                       isComponentLoading={componentLoadingStates[2]}
-                      // Region Props
                       regionEnable={regionEnable}
                       regionRect={regionRect}
                       onRegionChange={handleRegionManualChange}
-                      useInnerRegion={useInnerRegion}
-                      // Disable logic
+                      onRegionInteractionEnd={handleAutoMixTrigger}
+                      regionSelections={regionSelections}
                       mixMode={mixMode}
                   />
                   <InputViewport
@@ -478,12 +565,11 @@ function FTMixer() {
                       isLoading={loadingStates[3]}
                       componentImage={componentImages[3]}
                       isComponentLoading={componentLoadingStates[3]}
-                      // Region Props
                       regionEnable={regionEnable}
                       regionRect={regionRect}
                       onRegionChange={handleRegionManualChange}
-                      useInnerRegion={useInnerRegion}
-                      // Disable logic
+                      onRegionInteractionEnd={handleAutoMixTrigger}
+                      regionSelections={regionSelections}
                       mixMode={mixMode}
                   />
                   <OutputViewport
@@ -493,6 +579,7 @@ function FTMixer() {
                       magPhaseValues={magPhaseValues}
                       realImagValues={realImagValues}
                       autoMix={autoMix && activeOutput === "B"}
+                      regionSelections={regionSelections}
                   />
                 </div>
               </div>

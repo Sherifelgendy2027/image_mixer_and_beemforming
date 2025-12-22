@@ -1,13 +1,11 @@
 import React from 'react';
 
 // Helper component for standard range slider
-const SimpleSlider = ({ label, value, onChange, min, max }) => {
-    // Handle both array (from parent state) and single value
+const SimpleSlider = ({ label, value, onChange, min, max, onInteractionEnd }) => {
     const currentValue = Array.isArray(value) ? value[0] : value;
 
     const handleChange = (e) => {
         const val = parseInt(e.target.value, 10);
-        // Wrap in array to maintain compatibility with FTMixer handlers
         onChange([val]);
     };
 
@@ -24,8 +22,56 @@ const SimpleSlider = ({ label, value, onChange, min, max }) => {
                 max={max}
                 value={currentValue}
                 onChange={handleChange}
+                // Trigger the heavy API call only on release
+                onMouseUp={onInteractionEnd}
+                onTouchEnd={onInteractionEnd}
                 style={{height: '4px'}}
             />
+        </div>
+    );
+};
+
+// Helper for Radio Pair (Inner/Outer)
+const RadioPair = ({ name, isInner, onChange, onInteractionEnd }) => {
+    const handleChange = (val) => {
+        onChange(val);
+        // Radios trigger immediately because there's no "drag" state
+        if (onInteractionEnd) onInteractionEnd();
+    }
+
+    return (
+        <div className="btn-group btn-group-sm" role="group">
+            <input
+                type="radio"
+                className="btn-check"
+                name={name}
+                id={`${name}-in`}
+                checked={isInner}
+                onChange={() => handleChange(true)}
+            />
+            <label
+                className="btn btn-outline-primary py-0 px-2"
+                style={{fontSize: '0.65rem'}}
+                htmlFor={`${name}-in`}
+            >
+                In
+            </label>
+
+            <input
+                type="radio"
+                className="btn-check"
+                name={name}
+                id={`${name}-out`}
+                checked={!isInner}
+                onChange={() => handleChange(false)}
+            />
+            <label
+                className="btn btn-outline-primary py-0 px-2"
+                style={{fontSize: '0.65rem'}}
+                htmlFor={`${name}-out`}
+            >
+                Out
+            </label>
         </div>
     );
 };
@@ -46,13 +92,19 @@ export const LeftPanel = ({
                               handleRealImagSliderChange,
                               handleResetRealImag,
                               // Region Props
-                              useInnerRegion,
+                              regionSelections,
+                              setRegionSelection,
                               regionSize,
-                              setUseInnerRegion,
                               setRegionSize,
                               regionEnable,
-                              setRegionEnable
+                              setRegionEnable,
+                              // API Trigger
+                              onInteractionEnd
                           }) => {
+
+    const comp1Label = mixMode === 'magnitude_phase' ? 'Magnitude' : 'Real';
+    const comp2Label = mixMode === 'magnitude_phase' ? 'Phase' : 'Imaginary';
+
     return (
         <div className={`left-panel ${leftPanelOpen ? "open" : "closed"}`}>
             <div className="panel-content">
@@ -112,6 +164,7 @@ export const LeftPanel = ({
                                         label={`Input ${i + 1} Magnitude`}
                                         value={[magPhaseValues[i]]}
                                         onChange={(val) => handleMagPhaseSliderChange(i, val)}
+                                        onInteractionEnd={onInteractionEnd}
                                         min={0}
                                         max={100}
                                     />
@@ -124,6 +177,7 @@ export const LeftPanel = ({
                                         label={`Input ${i - 3} Phase`}
                                         value={[magPhaseValues[i]]}
                                         onChange={(val) => handleMagPhaseSliderChange(i, val)}
+                                        onInteractionEnd={onInteractionEnd}
                                         min={0}
                                         max={100}
                                     />
@@ -142,6 +196,7 @@ export const LeftPanel = ({
                                         label={`Input ${i + 1} Real`}
                                         value={[realImagValues[i]]}
                                         onChange={(val) => handleRealImagSliderChange(i, val)}
+                                        onInteractionEnd={onInteractionEnd}
                                         min={0}
                                         max={100}
                                     />
@@ -154,6 +209,7 @@ export const LeftPanel = ({
                                         label={`Input ${i - 3} Imaginary`}
                                         value={[realImagValues[i]]}
                                         onChange={(val) => handleRealImagSliderChange(i, val)}
+                                        onInteractionEnd={onInteractionEnd}
                                         min={0}
                                         max={100}
                                     />
@@ -186,29 +242,59 @@ export const LeftPanel = ({
 
                     {regionEnable && (
                         <div className="mt-3">
-                            <div className="mb-3">
-                                <label className="panel-label d-block mb-2" style={{fontSize: '0.8rem'}}>Region Selection:</label>
-                                <div className="btn-group w-100" role="group">
-                                    <input type="radio" className="btn-check" name="regiontype" id="region-inner" autoComplete="off"
-                                           checked={useInnerRegion} onChange={() => setUseInnerRegion(true)} />
-                                    <label className="btn btn-outline-primary btn-sm" htmlFor="region-inner">Inner</label>
+                            <label className="panel-label d-block mb-3" style={{fontSize: '0.8rem'}}>Region Selection:</label>
 
-                                    <input type="radio" className="btn-check" name="regiontype" id="region-outer" autoComplete="off"
-                                           checked={!useInnerRegion} onChange={() => setUseInnerRegion(false)} />
-                                    <label className="btn btn-outline-primary btn-sm" htmlFor="region-outer">Outer</label>
-                                </div>
+                            {/* 5x3 Grid for Selections */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '70px 1fr 1fr',
+                                gap: '8px 4px',
+                                alignItems: 'center'
+                            }}>
+                                {/* Header Row */}
+                                <div></div>
+                                <div className="text-center fw-bold small text-muted" style={{fontSize: '0.75rem'}}>{comp1Label}</div>
+                                <div className="text-center fw-bold small text-muted" style={{fontSize: '0.75rem'}}>{comp2Label}</div>
+
+                                {/* Rows for Inputs 1-4 */}
+                                {[0, 1, 2, 3].map((inputIdx) => (
+                                    <React.Fragment key={inputIdx}>
+                                        <div className="small fw-bold text-muted" style={{fontSize: '0.75rem'}}>Input {inputIdx + 1}:</div>
+                                        {/* Component 1 Decision (Index: inputIdx * 2) */}
+                                        <div className="d-flex justify-content-center">
+                                            <RadioPair
+                                                name={`reg-${inputIdx}-0`}
+                                                isInner={regionSelections[inputIdx * 2]}
+                                                onChange={(val) => setRegionSelection(inputIdx * 2, val)}
+                                                onInteractionEnd={onInteractionEnd}
+                                            />
+                                        </div>
+                                        {/* Component 2 Decision (Index: inputIdx * 2 + 1) */}
+                                        <div className="d-flex justify-content-center">
+                                            <RadioPair
+                                                name={`reg-${inputIdx}-1`}
+                                                isInner={regionSelections[inputIdx * 2 + 1]}
+                                                onChange={(val) => setRegionSelection(inputIdx * 2 + 1, val)}
+                                                onInteractionEnd={onInteractionEnd}
+                                            />
+                                        </div>
+                                    </React.Fragment>
+                                ))}
                             </div>
 
-                            <SimpleSlider
-                                label="Region Size (%)"
-                                value={regionSize}
-                                onChange={setRegionSize}
-                                min={1}
-                                max={100}
-                            />
-                            <div className="text-muted mt-2 fst-italic" style={{fontSize: '0.75rem'}}>
-                                <i className="bi bi-info-circle me-1"></i>
-                                Drag region on component view to move/resize.
+                            <div className="mt-4">
+                                <SimpleSlider
+                                    label="Region Size (%)"
+                                    value={regionSize}
+                                    onChange={setRegionSize}
+                                    onInteractionEnd={onInteractionEnd}
+                                    min={1}
+                                    max={100}
+                                />
+                                <div className="text-muted mt-2 fst-italic" style={{fontSize: '0.7rem'}}>
+                                    <i className="bi bi-info-circle me-1"></i>
+                                    Drag region on component view to move/resize.
+                                </div>
                             </div>
                         </div>
                     )}

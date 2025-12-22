@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 const RegionOverlay = ({
                            rect, // { x, y, w, h } in normalized coordinates (0-1)
                            onChange,
+                           onInteractionEnd, // Callback for when drag/resize ends (mouse up)
                            containerRef,
                            isInner = true,
                        }) => {
@@ -130,9 +131,15 @@ const RegionOverlay = ({
         };
 
         const handleMouseUp = () => {
-            setIsDragging(false);
-            setDragAction(null);
-            setStartRect(null);
+            if (isDragging) {
+                setIsDragging(false);
+                setDragAction(null);
+                setStartRect(null);
+                // Trigger interaction end callback
+                if (onInteractionEnd) {
+                    onInteractionEnd();
+                }
+            }
         };
 
         if (isDragging) {
@@ -144,20 +151,16 @@ const RegionOverlay = ({
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isDragging, dragAction, startPos, startRect, containerRef, onChange]);
+    }, [isDragging, dragAction, startPos, startRect, containerRef, onChange, onInteractionEnd]);
 
     return (
         <>
-            {/* Outer Region Backdrop (SVG Mask)
-          This layer creates the "dimmed" effect with a hole for the selected region.
-          It sits strictly inside the container (100% w/h) so it doesn't spill out.
-      */}
+            {/* Outer Region Backdrop (SVG Mask) */}
             {!isInner && (
                 <div className="region-backdrop">
                     <svg width="100%" height="100%" preserveAspectRatio="none" style={{ display: 'block' }}>
                         <defs>
                             <mask id="hole-mask">
-                                {/* White fills the mask (visible), Black is transparent (hole) */}
                                 <rect x="0" y="0" width="100%" height="100%" fill="white" />
                                 <rect
                                     x={`${rect.x * 100}%`}
@@ -168,7 +171,6 @@ const RegionOverlay = ({
                                 />
                             </mask>
                         </defs>
-                        {/* The dark overlay using the mask */}
                         <rect
                             x="0" y="0" width="100%" height="100%"
                             fill="rgba(0, 0, 0, 0.4)"
@@ -178,10 +180,7 @@ const RegionOverlay = ({
                 </div>
             )}
 
-            {/* The Interactive Box
-          This handles the border, drag events, and resize handles.
-          It is positioned absolutely based on the region.
-      */}
+            {/* The Interactive Box */}
             <div
                 className={`region-box ${isInner ? 'region-inner' : 'region-outer-box'}`}
                 style={{
