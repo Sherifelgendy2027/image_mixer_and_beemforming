@@ -1,131 +1,334 @@
 // components/InputViewport.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { ftComponents } from "./CustomComponents";
+import RegionOverlay from "./RegionOverlay";
 
 export const InputViewport = React.memo(
-  ({ index, title, component, onComponentChange, image, onImageLoad }) => {
-    const fileInputRef = useRef(null);
-    const [localImage, setLocalImage] = useState(null);
+    ({
+         index,
+         title,
+         component,
+         onComponentChange,
+         image,
+         onImageLoad,
+         isLoading,
+         componentImage,
+         isComponentLoading,
+         // Region Props
+         regionEnable,
+         regionRect,
+         onRegionChange,
+         onRegionInteractionEnd, // New prop for handling mouse up events
+         regionSelections,
+         // Disable Logic Prop
+         mixMode
+     }) => {
+        const fileInputRef = useRef(null);
+        const ftContainerRef = useRef(null);
+        const [localImage, setLocalImage] = useState(null);
+        const [viewMode, setViewMode] = useState("original"); // 'original' | 'processed'
 
-    const handleDoubleClick = () => {
-      fileInputRef.current?.click();
-    };
+        // Visualization State
+        const [brightness, setBrightness] = useState(100);
+        const [contrast, setContrast] = useState(100);
 
-    const handleFileChange = (e) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-            const imageData = {
-              src: event.target?.result,
-              originalWidth: img.width,
-              originalHeight: img.height,
-            };
-            setLocalImage(imageData);
-            onImageLoad(index, imageData);
-          };
-          img.src = event.target?.result;
+        const handleDoubleClick = () => {
+            // Prevent file dialog if already loading
+            if (!isLoading) {
+                fileInputRef.current?.click();
+            }
         };
-        reader.readAsDataURL(file);
-      }
-      e.target.value = "";
-    };
 
-    // Update local image when prop changes
-    useEffect(() => {
-      if (image) {
-        setLocalImage(image);
-      } else {
-        setLocalImage(null);
-      }
-    }, [image]);
+        const handleFileChange = (e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const imageData = {
+                            src: event.target?.result,
+                            originalWidth: img.width,
+                            originalHeight: img.height,
+                            file: file, // Pass file object to parent for upload
+                        };
+                        setLocalImage(imageData);
+                        onImageLoad(index, imageData);
+                        // Reset to original view when a new file is loaded
+                        setViewMode("original");
+                    };
+                    img.src = event.target?.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            e.target.value = "";
+        };
 
-    const handleSelectChange = (e) => {
-      onComponentChange(e.target.value);
-    };
+        // Update local image when prop changes
+        useEffect(() => {
+            if (image) {
+                setLocalImage(image);
+                // If the processed source is removed (e.g. cleared), default back to original
+                if (!image.processedSrc) {
+                    setViewMode("original");
+                }
+            } else {
+                setLocalImage(null);
+                setViewMode("original");
+            }
+        }, [image]);
 
-    return (
-      <div className="viewport-container">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          className="hidden-file-input"
-        />
+        const handleSelectChange = (e) => {
+            onComponentChange(e.target.value);
+        };
 
-        <div className="viewport-header">
-          <div className="viewport-header-left">
-            <div className="viewport-index">
-              <span>{index + 1}</span>
-            </div>
-            <span className="viewport-title">{title}</span>
-          </div>
-          <select
-            className="form-select custom-select w-50"
-            value={component}
-            onChange={handleSelectChange}
-          >
-            {ftComponents.map((comp) => (
-              <option key={comp.value} value={comp.value}>
-                {comp.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        // Determine which image source to display
+        const displaySrc = (viewMode === "processed" && localImage?.processedSrc)
+            ? localImage.processedSrc
+            : localImage?.src;
 
-        <div className="viewport-content">
-          {/* Original Image - Left Side */}
-          <div
-            className="viewport-image-container image-placeholder"
-            onDoubleClick={handleDoubleClick}
-            title="Double-click to load/replace image"
-          >
-            {localImage ? (
-              <img
-                src={localImage.src}
-                alt={`Input ${index + 1}`}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                }}
-                className="viewport-image"
-              />
-            ) : (
-              <div className="placeholder-content">
-                <i className="bi bi-image placeholder-icon"></i>
-                <span className="placeholder-text">Double-click to load</span>
-              </div>
-            )}
-          </div>
+        // Dynamic Filter Style
+        const filterStyle = { filter: `brightness(${brightness}%) contrast(${contrast}%)` };
 
-          {/* FT Component - Right Side */}
-          <div className="viewport-image-container ft-component">
-            {localImage ? (
-              <div
-                className="ft-component-content"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                }}
-              >
-                <div className="ft-component-placeholder">
-                  <i className="bi bi-layers placeholder-icon"></i>
-                  <span className="ft-component-text">{component}</span>
+        // Helper to determine if an option should be disabled
+        const isOptionDisabled = (optionValue) => {
+            if (!regionEnable) return false;
+
+            if (mixMode === 'magnitude_phase') {
+                return optionValue === 'real' || optionValue === 'imaginary';
+            } else if (mixMode === 'real_imaginary') {
+                return optionValue === 'magnitude' || optionValue === 'phase';
+            }
+            return false;
+        };
+
+        // Determine if the region overlay should show "Inner" or "Outer"
+        let useInnerRegion = true;
+        if (regionEnable && regionSelections) {
+            let compIndex = -1;
+
+            if (mixMode === 'magnitude_phase') {
+                if (component === 'magnitude') compIndex = 0;
+                else if (component === 'phase') compIndex = 1;
+            } else if (mixMode === 'real_imaginary') {
+                if (component === 'real') compIndex = 0;
+                else if (component === 'imaginary') compIndex = 1;
+            }
+
+            if (compIndex !== -1) {
+                useInnerRegion = regionSelections[index * 2 + compIndex];
+            }
+        }
+
+        return (
+            <div className="viewport-container" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden-file-input"
+                    disabled={isLoading}
+                    style={{display: 'none'}}
+                />
+
+                <div className="viewport-header">
+                    <div className="viewport-header-left">
+                        <div className="viewport-index">
+                            <span>{index + 1}</span>
+                        </div>
+                        <div className="d-flex flex-column justify-content-center">
+                            <span className="viewport-title" style={{lineHeight: '1.1'}}>{title}</span>
+                            {/* Toggle Switch for Original vs Processed */}
+                            {localImage?.processedSrc && !isLoading && (
+                                <div className="btn-group btn-group-sm mt-1" role="group" aria-label="Image View Toggle">
+                                    <button
+                                        type="button"
+                                        className={`btn ${viewMode === 'original' ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-1`}
+                                        style={{fontSize: '0.65rem', height: '18px'}}
+                                        onClick={() => setViewMode('original')}
+                                        title="Show Original Uploaded Image"
+                                    >
+                                        Orig
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`btn ${viewMode === 'processed' ? 'btn-primary' : 'btn-outline-secondary'} py-0 px-1`}
+                                        style={{fontSize: '0.65rem', height: '18px'}}
+                                        onClick={() => setViewMode('processed')}
+                                        title="Show Server Processed Image"
+                                    >
+                                        Proc
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <select
+                        className="form-select custom-select w-50"
+                        value={component}
+                        onChange={handleSelectChange}
+                    >
+                        {ftComponents.map((comp) => (
+                            <option
+                                key={comp.value}
+                                value={comp.value}
+                                disabled={isOptionDisabled(comp.value)}
+                            >
+                                {comp.label}
+                            </option>
+                        ))}
+                    </select>
                 </div>
-              </div>
-            ) : (
-              <div className="placeholder-content">
-                <i className="bi bi-layers placeholder-icon"></i>
-                <span className="placeholder-text">FT {component}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+
+                <div className="viewport-content" style={{flex: 1, minHeight: 0}}>
+                    {/* Original Image - Left Side */}
+                    <div
+                        className={`viewport-image-container image-placeholder ${isLoading ? 'cursor-wait' : ''}`}
+                        onDoubleClick={handleDoubleClick}
+                        title={isLoading ? "Uploading..." : "Double-click to load/replace image"}
+                    >
+                        {isLoading ? (
+                            <div className="d-flex flex-column align-items-center justify-content-center h-100 w-100 bg-light bg-opacity-75" style={{zIndex: 10}}>
+                                <div className="spinner-border text-primary mb-2" role="status" style={{width: '2rem', height: '2rem'}}>
+                                    <span className="visually-hidden">Loading...</span>
+                                </div>
+                                <span className="text-muted small fw-bold">Processing...</span>
+                            </div>
+                        ) : localImage ? (
+                            <img
+                                src={displaySrc}
+                                alt={`Input ${index + 1}`}
+                                style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "contain",
+                                    ...filterStyle
+                                }}
+                                className="viewport-image"
+                                crossOrigin="anonymous"
+                                onError={(e) => {
+                                    console.error("Failed to load image:", displaySrc);
+                                    e.target.style.display = 'none';
+                                }}
+                            />
+                        ) : (
+                            <div className="placeholder-content">
+                                <i className="bi bi-image placeholder-icon"></i>
+                                <span className="placeholder-text">Double-click to load</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* FT Component - Right Side */}
+                    <div
+                        className="viewport-image-container ft-component"
+                        style={{ position: 'relative' }}
+                        ref={ftContainerRef}
+                    >
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            overflow: 'hidden',
+                            borderRadius: 'inherit',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 0
+                        }}>
+                            {isComponentLoading ? (
+                                <div className="d-flex flex-column align-items-center justify-content-center h-100 w-100">
+                                    <div className="spinner-grow text-secondary spinner-grow-sm mb-1" role="status">
+                                        <span className="visually-hidden">Loading...</span>
+                                    </div>
+                                    <span style={{fontSize: '0.7rem', color: '#6c757d'}}>Fetching...</span>
+                                </div>
+                            ) : componentImage ? (
+                                <img
+                                    src={`data:image/png;base64,${componentImage}`}
+                                    alt={`${component} view`}
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "contain",
+                                        ...filterStyle
+                                    }}
+                                    className="viewport-image"
+                                />
+                            ) : localImage ? (
+                                <div
+                                    className="ft-component-content"
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        ...filterStyle
+                                    }}
+                                >
+                                    <div className="ft-component-placeholder">
+                                        <i className="bi bi-layers placeholder-icon"></i>
+                                        <span className="ft-component-text">{component}</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="placeholder-content">
+                                    <i className="bi bi-layers placeholder-icon"></i>
+                                    <span className="placeholder-text">FT {component}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* REGION OVERLAY */}
+                        {componentImage && regionEnable && (
+                            <RegionOverlay
+                                rect={regionRect}
+                                onChange={onRegionChange}
+                                onInteractionEnd={onRegionInteractionEnd}
+                                containerRef={ftContainerRef}
+                                isInner={useInnerRegion}
+                            />
+                        )}
+                    </div>
+                </div>
+
+                {/* Brightness & Contrast Sliders */}
+                <div className="viewport-footer d-flex gap-2 px-2 py-1 align-items-center border-top bg-light" style={{height: '50px'}}>
+                    <div className="d-flex flex-column flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-center">
+                            <label style={{fontSize: '0.65rem', fontWeight: 'bold', marginBottom: 0}}>Brightness</label>
+                            <span style={{fontSize: '0.65rem'}}>{brightness}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            className="form-range"
+                            min="0"
+                            max="200"
+                            step="5"
+                            value={brightness}
+                            onChange={(e) => setBrightness(e.target.value)}
+                            style={{height: '0.8rem', padding: 0}}
+                        />
+                    </div>
+                    <div className="d-flex flex-column flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-center">
+                            <label style={{fontSize: '0.65rem', fontWeight: 'bold', marginBottom: 0}}>Contrast</label>
+                            <span style={{fontSize: '0.65rem'}}>{contrast}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            className="form-range"
+                            min="0"
+                            max="200"
+                            step="5"
+                            value={contrast}
+                            onChange={(e) => setContrast(e.target.value)}
+                            style={{height: '0.8rem', padding: 0}}
+                        />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 );
