@@ -5,14 +5,16 @@ import "../styles/FTMixer.css";
 import { InputViewport } from "../src/components/InputViewport";
 import { OutputViewport } from "../src/components/OutputViewport";
 import { LeftPanel } from "../src/components/LeftPanel";
-import { RightPanel } from "../src/components/RightPanel";
 
 // Main FTMixer component
 function FTMixer() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [activeOutput, setActiveOutput] = useState("A");
   const [autoMix, setAutoMix] = useState(false);
+
+  // Mix Mode State: 'magnitude_phase' | 'real_imaginary'
+  const [mixMode, setMixMode] = useState('magnitude_phase');
+
   const [viewportComponents, setViewportComponents] = useState([
     "magnitude",
     "magnitude",
@@ -25,19 +27,24 @@ function FTMixer() {
   const [realImagValues, setRealImagValues] = useState([
     50, 50, 50, 50, 50, 50, 50, 50,
   ]);
+
+  // Region State
   const [useInnerRegion, setUseInnerRegion] = useState(true);
-  const [regionSize, setRegionSize] = useState([50]);
+  const [regionSize, setRegionSize] = useState([50]); // Keeps track of slider value
+  const [regionEnable, setRegionEnable] = useState(false); // Default disabled
+
+  // Unified Region Rect State (Normalized 0-1)
+  const [regionRect, setRegionRect] = useState({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 });
 
   // Image state
   const [images, setImages] = useState([null, null, null, null]);
-  const [loadingStates, setLoadingStates] = useState([false, false, false, false]); // Track upload loading per slot
+  const [loadingStates, setLoadingStates] = useState([false, false, false, false]);
 
-  // Component Image State (for the right side of the viewport)
+  // Component Image State
   const [componentImages, setComponentImages] = useState([null, null, null, null]);
-  const [componentLoadingStates, setComponentLoadingStates] = useState([false, false, false, false]); // Track component fetch loading
+  const [componentLoadingStates, setComponentLoadingStates] = useState([false, false, false, false]);
 
   const [unifiedSize, setUnifiedSize] = useState(null);
-  const [regionEnable, setRegionEnable] = useState(true);
 
   // Calculate unified size whenever images change
   useEffect(() => {
@@ -56,7 +63,6 @@ function FTMixer() {
 
   // Function to fetch the specific component image
   const fetchComponent = useCallback(async (slotIndex, type) => {
-    // Set loading state for this component slot
     setComponentLoadingStates((prev) => {
       const newStates = [...prev];
       newStates[slotIndex - 1] = true;
@@ -64,12 +70,9 @@ function FTMixer() {
     });
 
     try {
-      console.log(`Getting the ${type} component of the image in slot ${slotIndex}`);
       const response = await fetch(`/api/component/${slotIndex}/${type}`);
       if (response.ok) {
         const data = await response.json();
-        // data.image_data is expected to be a base64 string
-        console.log(`The image data of the ${type} component of the image in slot ${slotIndex}:`, data);
         setComponentImages((prev) => {
           const newImages = [...prev];
           newImages[slotIndex - 1] = data.image_data;
@@ -91,13 +94,81 @@ function FTMixer() {
         return newImages;
       });
     } finally {
-      // Turn off loading state
       setComponentLoadingStates((prev) => {
         const newStates = [...prev];
         newStates[slotIndex - 1] = false;
         return newStates;
       });
     }
+  }, []);
+
+  // Effect to enforce valid components when Region Mixer is enabled
+  useEffect(() => {
+    if (!regionEnable) return;
+
+    // Calculate what the components *should* be
+    const nextComponents = viewportComponents.map((comp) => {
+      if (mixMode === 'magnitude_phase') {
+        if (comp === 'real' || comp === 'imaginary') return 'magnitude';
+      } else if (mixMode === 'real_imaginary') {
+        if (comp === 'magnitude' || comp === 'phase') return 'real';
+      }
+      return comp;
+    });
+
+    // Check if any change is needed
+    const isDifferent = nextComponents.some((comp, i) => comp !== viewportComponents[i]);
+
+    if (isDifferent) {
+      // Update state
+      setViewportComponents(nextComponents);
+
+      // Trigger fetches for changed components if an image exists in that slot
+      nextComponents.forEach((comp, index) => {
+        if (comp !== viewportComponents[index] && images[index]) {
+          fetchComponent(index + 1, comp);
+        }
+      });
+    }
+  }, [mixMode, regionEnable, viewportComponents, images, fetchComponent]);
+
+  // Handle Region Slider Change
+  // SCALES region relative to its current center
+  const handleRegionSliderChange = useCallback((value) => {
+    const sizePercent = value[0];
+    setRegionSize(value); // Update slider UI
+
+    setRegionRect((currentRect) => {
+      const newSize = sizePercent / 100;
+
+      // Calculate current center
+      const cx = currentRect.x + currentRect.w / 2;
+      const cy = currentRect.y + currentRect.h / 2;
+
+      // Calculate new top-left based on center and new size
+      let newX = cx - newSize / 2;
+      let newY = cy - newSize / 2;
+
+      // Clamp to bounds to ensure it stays inside [0,1]
+      // Max possible x is 1 - newSize, min is 0
+      newX = Math.max(0, Math.min(newX, 1 - newSize));
+      newY = Math.max(0, Math.min(newY, 1 - newSize));
+
+      return {
+        x: newX,
+        y: newY,
+        w: newSize,
+        h: newSize
+      };
+    });
+  }, []);
+
+  // Handle Manual Region Interaction (Drag/Resize)
+  const handleRegionManualChange = useCallback((newRect) => {
+    setRegionRect(newRect);
+    // Update slider to match the max dimension of the new rect roughly
+    const maxDim = Math.max(newRect.w, newRect.h);
+    setRegionSize([Math.round(maxDim * 100)]);
   }, []);
 
   const handleComponentChange = useCallback((index, value) => {
@@ -107,7 +178,6 @@ function FTMixer() {
       return newComponents;
     });
 
-    // If an image is loaded in this slot, fetch the new component immediately
     if (images[index]) {
       fetchComponent(index + 1, value);
     }
@@ -129,9 +199,7 @@ function FTMixer() {
     });
   }, []);
 
-  // Upload function - Modified to use a URL that Vite can serve
   const uploadImage = useCallback(async (file, slotIndex) => {
-    // Set loading state for this slot to true
     setLoadingStates(prev => {
       const newStates = [...prev];
       newStates[slotIndex - 1] = true;
@@ -142,26 +210,21 @@ function FTMixer() {
     formData.append("file", file);
 
     try {
-      console.log(`Uploading image to slot ${slotIndex}`);
       const response = await fetch(`/api/upload/${slotIndex}`, {
         method: "POST",
         body: formData,
       });
       const data = await response.json();
-      console.log(`Image uploaded to slot ${slotIndex}:`, data);
 
       let processedSrc;
 
-      // Option 1: Use the backend's static serving endpoint
       if (data.filepath) {
         const cleanPath = data.filepath.replace(/\\/g, "/");
         processedSrc = `/static/uploads/${cleanPath.split('/').pop()}`;
       }
 
-      // Update state with processed image path
       setImages((prev) => {
         const newImages = [...prev];
-        // Ensure the slot still has an image
         if (newImages[slotIndex - 1]) {
           newImages[slotIndex - 1] = {
             ...newImages[slotIndex - 1],
@@ -171,14 +234,12 @@ function FTMixer() {
         return newImages;
       });
 
-      // Once uploaded, fetch the currently selected component
       const currentComponentType = viewportComponents[slotIndex - 1];
       await fetchComponent(slotIndex, currentComponentType);
 
     } catch (error) {
       console.error("Error uploading image:", error);
     } finally {
-      // Set loading state for this slot to false
       setLoadingStates(prev => {
         const newStates = [...prev];
         newStates[slotIndex - 1] = false;
@@ -188,9 +249,8 @@ function FTMixer() {
   }, [viewportComponents, fetchComponent]);
 
   const handleImageLoad = useCallback((index, imageData) => {
-    // Trigger upload if file object is present
     if (imageData && imageData.file) {
-      uploadImage(imageData.file, index + 1); // API expects 1-based index (1-4)
+      uploadImage(imageData.file, index + 1);
     }
 
     setImages((prev) => {
@@ -198,12 +258,6 @@ function FTMixer() {
       newImages[index] = imageData;
       return newImages;
     });
-
-    // If we are clearing an image (imageData is null/empty but handled by removing),
-    // we should also clear the component image.
-    // Ideally this logic is handled by setting images to null if appropriate.
-    // Here we just ensure component image is cleared if image is reset.
-    // Since handleImageLoad is mostly for loading, if we had a remove logic it would be separate.
   }, [uploadImage]);
 
   const handleImageReplace = useCallback(
@@ -222,7 +276,7 @@ function FTMixer() {
                   src: event.target?.result,
                   originalWidth: img.width,
                   originalHeight: img.height,
-                  file: file, // Pass file object for upload
+                  file: file,
                 });
               };
               img.src = event.target?.result;
@@ -235,13 +289,14 @@ function FTMixer() {
       [handleImageLoad]
   );
 
-  const handleResetAll = useCallback(() => {
+  const handleResetMagPhase = useCallback(() => {
     setMagPhaseValues([50, 50, 50, 50, 50, 50, 50, 50]);
   }, []);
 
-  const handleResetRightPanel = useCallback(() => {
+  const handleResetRealImag = useCallback(() => {
     setRealImagValues([50, 50, 50, 50, 50, 50, 50, 50]);
     setRegionSize([50]);
+    setRegionRect({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 });
   }, []);
 
   return (
@@ -251,10 +306,29 @@ function FTMixer() {
           <LeftPanel
               leftPanelOpen={leftPanelOpen}
               images={images}
-              magPhaseValues={magPhaseValues}
               handleImageReplace={handleImageReplace}
-              handleResetAll={handleResetAll}
+
+              // Mix Mode Props
+              mixMode={mixMode}
+              setMixMode={setMixMode}
+
+              // Mag/Phase Props
+              magPhaseValues={magPhaseValues}
               handleMagPhaseSliderChange={handleMagPhaseSliderChange}
+              handleResetMagPhase={handleResetMagPhase}
+
+              // Real/Imag Props
+              realImagValues={realImagValues}
+              handleRealImagSliderChange={handleRealImagSliderChange}
+              handleResetRealImag={handleResetRealImag}
+
+              // Region Props
+              useInnerRegion={useInnerRegion}
+              regionSize={regionSize}
+              setUseInnerRegion={setUseInnerRegion}
+              setRegionSize={handleRegionSliderChange}
+              regionEnable={regionEnable}
+              setRegionEnable={setRegionEnable}
           />
 
           {/* Toggle Left Panel */}
@@ -301,7 +375,7 @@ function FTMixer() {
               </div>
               {/* Auto Mix Toggle Button */}
               <button
-                  className={`btn btn-sm border ${
+                  className={`btn btn-smQB border ${
                       autoMix ? "btn-success" : "btn-outline-secondary"
                   }`}
                   onClick={() => setAutoMix(!autoMix)}
@@ -332,6 +406,13 @@ function FTMixer() {
                       isLoading={loadingStates[0]}
                       componentImage={componentImages[0]}
                       isComponentLoading={componentLoadingStates[0]}
+                      // Region Props
+                      regionEnable={regionEnable}
+                      regionRect={regionRect}
+                      onRegionChange={handleRegionManualChange}
+                      useInnerRegion={useInnerRegion}
+                      // Disable logic
+                      mixMode={mixMode}
                   />
                   <InputViewport
                       index={1}
@@ -345,6 +426,13 @@ function FTMixer() {
                       isLoading={loadingStates[1]}
                       componentImage={componentImages[1]}
                       isComponentLoading={componentLoadingStates[1]}
+                      // Region Props
+                      regionEnable={regionEnable}
+                      regionRect={regionRect}
+                      onRegionChange={handleRegionManualChange}
+                      useInnerRegion={useInnerRegion}
+                      // Disable logic
+                      mixMode={mixMode}
                   />
                   <OutputViewport
                       label="Output A"
@@ -370,6 +458,13 @@ function FTMixer() {
                       isLoading={loadingStates[2]}
                       componentImage={componentImages[2]}
                       isComponentLoading={componentLoadingStates[2]}
+                      // Region Props
+                      regionEnable={regionEnable}
+                      regionRect={regionRect}
+                      onRegionChange={handleRegionManualChange}
+                      useInnerRegion={useInnerRegion}
+                      // Disable logic
+                      mixMode={mixMode}
                   />
                   <InputViewport
                       index={3}
@@ -383,6 +478,13 @@ function FTMixer() {
                       isLoading={loadingStates[3]}
                       componentImage={componentImages[3]}
                       isComponentLoading={componentLoadingStates[3]}
+                      // Region Props
+                      regionEnable={regionEnable}
+                      regionRect={regionRect}
+                      onRegionChange={handleRegionManualChange}
+                      useInnerRegion={useInnerRegion}
+                      // Disable logic
+                      mixMode={mixMode}
                   />
                   <OutputViewport
                       label="Output B"
@@ -396,32 +498,6 @@ function FTMixer() {
               </div>
             </div>
           </div>
-
-          {/* Toggle Right Panel */}
-          <button
-              onClick={() => setRightPanelOpen(!rightPanelOpen)}
-              className="panel-toggle right-toggle"
-          >
-            {rightPanelOpen ? (
-                <i className="bi bi-chevron-right"></i>
-            ) : (
-                <i className="bi bi-chevron-left"></i>
-            )}
-          </button>
-
-          {/* Right Information Panel - Updated with Region Mixer and Real/Imaginary */}
-          <RightPanel
-              rightPanelOpen={rightPanelOpen}
-              useInnerRegion={useInnerRegion}
-              regionSize={regionSize}
-              realImagValues={realImagValues}
-              setUseInnerRegion={setUseInnerRegion}
-              setRegionSize={setRegionSize}
-              handleResetRightPanel={handleResetRightPanel}
-              handleRealImagSliderChange={handleRealImagSliderChange}
-              regionEnable={regionEnable}
-              setRegionEnable={setRegionEnable}
-          />
         </div>
       </div>
   );

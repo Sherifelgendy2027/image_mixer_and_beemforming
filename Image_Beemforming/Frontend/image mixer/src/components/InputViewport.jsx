@@ -1,6 +1,7 @@
 // components/InputViewport.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { ftComponents } from "./CustomComponents";
+import RegionOverlay from "./RegionOverlay";
 
 export const InputViewport = React.memo(
     ({
@@ -12,9 +13,17 @@ export const InputViewport = React.memo(
          onImageLoad,
          isLoading,
          componentImage,
-         isComponentLoading
+         isComponentLoading,
+         // Region Props
+         regionEnable,
+         regionRect,
+         onRegionChange,
+         useInnerRegion,
+         // Disable Logic Prop
+         mixMode // 'magnitude_phase' | 'real_imaginary'
      }) => {
         const fileInputRef = useRef(null);
+        const ftContainerRef = useRef(null);
         const [localImage, setLocalImage] = useState(null);
         const [viewMode, setViewMode] = useState("original"); // 'original' | 'processed'
 
@@ -80,6 +89,18 @@ export const InputViewport = React.memo(
         // Dynamic Filter Style
         const filterStyle = { filter: `brightness(${brightness}%) contrast(${contrast}%)` };
 
+        // Helper to determine if an option should be disabled
+        const isOptionDisabled = (optionValue) => {
+            if (!regionEnable) return false;
+
+            if (mixMode === 'magnitude_phase') {
+                return optionValue === 'real' || optionValue === 'imaginary';
+            } else if (mixMode === 'real_imaginary') {
+                return optionValue === 'magnitude' || optionValue === 'phase';
+            }
+            return false;
+        };
+
         return (
             <div className="viewport-container" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
                 <input
@@ -130,7 +151,11 @@ export const InputViewport = React.memo(
                         onChange={handleSelectChange}
                     >
                         {ftComponents.map((comp) => (
-                            <option key={comp.value} value={comp.value}>
+                            <option
+                                key={comp.value}
+                                value={comp.value}
+                                disabled={isOptionDisabled(comp.value)}
+                            >
                                 {comp.label}
                             </option>
                         ))}
@@ -177,45 +202,79 @@ export const InputViewport = React.memo(
                     </div>
 
                     {/* FT Component - Right Side */}
-                    <div className="viewport-image-container ft-component">
-                        {isComponentLoading ? (
-                            <div className="d-flex flex-column align-items-center justify-content-center h-100 w-100">
-                                <div className="spinner-grow text-secondary spinner-grow-sm mb-1" role="status">
-                                    <span className="visually-hidden">Loading...</span>
+                    {/* Note: This container has overflow:visible via .ft-component class to allow handles to extend */}
+                    <div
+                        className="viewport-image-container ft-component"
+                        style={{ position: 'relative' }}
+                        ref={ftContainerRef}
+                    >
+                        {/* INNER CLIPPER: Absolutely positioned to fill parent and CLIP content.
+                            This ensures the image doesn't bleed out even if parent has overflow:visible.
+                        */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            overflow: 'hidden',
+                            borderRadius: 'inherit',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 0
+                        }}>
+                            {isComponentLoading ? (
+                                <div className="d-flex flex-column align-items-center justify-content-center h-100 w-100">
+                                    <div className="spinner-grow text-secondary spinner-grow-sm mb-1" role="status">
+                                        <span className="visually-hidden">Loading...</span>
+                                    </div>
+                                    <span style={{fontSize: '0.7rem', color: '#6c757d'}}>Fetching...</span>
                                 </div>
-                                <span style={{fontSize: '0.7rem', color: '#6c757d'}}>Fetching...</span>
-                            </div>
-                        ) : componentImage ? (
-                            <img
-                                src={`data:image/png;base64,${componentImage}`}
-                                alt={`${component} view`}
-                                style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "contain",
-                                    ...filterStyle
-                                }}
-                                className="viewport-image"
-                            />
-                        ) : localImage ? (
-                            <div
-                                className="ft-component-content"
-                                style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    ...filterStyle
-                                }}
-                            >
-                                <div className="ft-component-placeholder">
+                            ) : componentImage ? (
+                                <img
+                                    src={`data:image/png;base64,${componentImage}`}
+                                    alt={`${component} view`}
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        objectFit: "contain",
+                                        ...filterStyle
+                                    }}
+                                    className="viewport-image"
+                                />
+                            ) : localImage ? (
+                                <div
+                                    className="ft-component-content"
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        ...filterStyle
+                                    }}
+                                >
+                                    <div className="ft-component-placeholder">
+                                        <i className="bi bi-layers placeholder-icon"></i>
+                                        <span className="ft-component-text">{component}</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="placeholder-content">
                                     <i className="bi bi-layers placeholder-icon"></i>
-                                    <span className="ft-component-text">{component}</span>
+                                    <span className="placeholder-text">FT {component}</span>
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="placeholder-content">
-                                <i className="bi bi-layers placeholder-icon"></i>
-                                <span className="placeholder-text">FT {component}</span>
-                            </div>
+                            )}
+                        </div>
+
+                        {/* REGION OVERLAY: Sits outside the inner clipper div but inside the relative container.
+                            This allows its handles to extend beyond the container bounds (overflow:visible on parent).
+                        */}
+                        {componentImage && regionEnable && (
+                            <RegionOverlay
+                                rect={regionRect}
+                                onChange={onRegionChange}
+                                containerRef={ftContainerRef}
+                                isInner={useInnerRegion}
+                            />
                         )}
                     </div>
                 </div>
