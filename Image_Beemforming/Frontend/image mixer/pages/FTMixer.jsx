@@ -7,9 +7,6 @@ import { OutputViewport } from "../src/components/OutputViewport";
 import { LeftPanel } from "../src/components/LeftPanel";
 import { RightPanel } from "../src/components/RightPanel";
 
-// Removed BASE_IMAGE_PATH - we'll use a different approach
-// const BASE_IMAGE_PATH = "../../../../Backend";
-
 // Main FTMixer component
 function FTMixer() {
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
@@ -33,8 +30,13 @@ function FTMixer() {
 
   // Image state
   const [images, setImages] = useState([null, null, null, null]);
-  const [unifiedSize, setUnifiedSize] = useState(null);
+  const [loadingStates, setLoadingStates] = useState([false, false, false, false]); // Track upload loading per slot
 
+  // Component Image State (for the right side of the viewport)
+  const [componentImages, setComponentImages] = useState([null, null, null, null]);
+  const [componentLoadingStates, setComponentLoadingStates] = useState([false, false, false, false]); // Track component fetch loading
+
+  const [unifiedSize, setUnifiedSize] = useState(null);
   const [regionEnable, setRegionEnable] = useState(true);
 
   // Calculate unified size whenever images change
@@ -52,13 +54,64 @@ function FTMixer() {
     setUnifiedSize({ width: minWidth, height: minHeight });
   }, [images]);
 
+  // Function to fetch the specific component image
+  const fetchComponent = useCallback(async (slotIndex, type) => {
+    // Set loading state for this component slot
+    setComponentLoadingStates((prev) => {
+      const newStates = [...prev];
+      newStates[slotIndex - 1] = true;
+      return newStates;
+    });
+
+    try {
+      console.log(`Getting the ${type} component of the image in slot ${slotIndex}`);
+      const response = await fetch(`/api/component/${slotIndex}/${type}`);
+      if (response.ok) {
+        const data = await response.json();
+        // data.image_data is expected to be a base64 string
+        console.log(`The image data of the ${type} component of the image in slot ${slotIndex}:`, data);
+        setComponentImages((prev) => {
+          const newImages = [...prev];
+          newImages[slotIndex - 1] = data.image_data;
+          return newImages;
+        });
+      } else {
+        console.error(`Failed to fetch component ${type} for slot ${slotIndex}`);
+        setComponentImages((prev) => {
+          const newImages = [...prev];
+          newImages[slotIndex - 1] = null;
+          return newImages;
+        });
+      }
+    } catch (error) {
+      console.error(`Error fetching component for slot ${slotIndex}:`, error);
+      setComponentImages((prev) => {
+        const newImages = [...prev];
+        newImages[slotIndex - 1] = null;
+        return newImages;
+      });
+    } finally {
+      // Turn off loading state
+      setComponentLoadingStates((prev) => {
+        const newStates = [...prev];
+        newStates[slotIndex - 1] = false;
+        return newStates;
+      });
+    }
+  }, []);
+
   const handleComponentChange = useCallback((index, value) => {
     setViewportComponents((prev) => {
       const newComponents = [...prev];
       newComponents[index] = value;
       return newComponents;
     });
-  }, []);
+
+    // If an image is loaded in this slot, fetch the new component immediately
+    if (images[index]) {
+      fetchComponent(index + 1, value);
+    }
+  }, [images, fetchComponent]);
 
   const handleMagPhaseSliderChange = useCallback((index, value) => {
     setMagPhaseValues((prev) => {
@@ -77,11 +130,19 @@ function FTMixer() {
   }, []);
 
   // Upload function - Modified to use a URL that Vite can serve
-  const uploadImage = async (file, slotIndex) => {
+  const uploadImage = useCallback(async (file, slotIndex) => {
+    // Set loading state for this slot to true
+    setLoadingStates(prev => {
+      const newStates = [...prev];
+      newStates[slotIndex - 1] = true;
+      return newStates;
+    });
+
     const formData = new FormData();
     formData.append("file", file);
 
     try {
+      console.log(`Uploading image to slot ${slotIndex}`);
       const response = await fetch(`/api/upload/${slotIndex}`, {
         method: "POST",
         body: formData,
@@ -89,40 +150,42 @@ function FTMixer() {
       const data = await response.json();
       console.log(`Image uploaded to slot ${slotIndex}:`, data);
 
-      // Instead of using a relative path, we'll use an absolute URL
-      // that points to where the backend serves static files
       let processedSrc;
 
       // Option 1: Use the backend's static serving endpoint
       if (data.filepath) {
         const cleanPath = data.filepath.replace(/\\/g, "/");
-        // Assuming your backend serves static files at /static/uploads/
         processedSrc = `/static/uploads/${cleanPath.split('/').pop()}`;
-
-        // Or if you have a proxy set up to forward /api/uploads to your backend:
-        // processedSrc = `/api/uploads/${cleanPath.split('/').pop()}`;
       }
-
-      // Option 2: Or use a direct URL to the uploaded file
-      // processedSrc = `/api/uploaded-image/${slotIndex}`;
 
       // Update state with processed image path
       setImages((prev) => {
         const newImages = [...prev];
-        // Ensure the slot still has an image (user hasn't cleared it while uploading)
+        // Ensure the slot still has an image
         if (newImages[slotIndex - 1]) {
           newImages[slotIndex - 1] = {
             ...newImages[slotIndex - 1],
-            // Store a URL that can be served by the backend
             processedSrc: processedSrc || `/api/uploaded-image/${slotIndex}`
           };
         }
         return newImages;
       });
+
+      // Once uploaded, fetch the currently selected component
+      const currentComponentType = viewportComponents[slotIndex - 1];
+      await fetchComponent(slotIndex, currentComponentType);
+
     } catch (error) {
       console.error("Error uploading image:", error);
+    } finally {
+      // Set loading state for this slot to false
+      setLoadingStates(prev => {
+        const newStates = [...prev];
+        newStates[slotIndex - 1] = false;
+        return newStates;
+      });
     }
-  };
+  }, [viewportComponents, fetchComponent]);
 
   const handleImageLoad = useCallback((index, imageData) => {
     // Trigger upload if file object is present
@@ -135,7 +198,13 @@ function FTMixer() {
       newImages[index] = imageData;
       return newImages;
     });
-  }, []);
+
+    // If we are clearing an image (imageData is null/empty but handled by removing),
+    // we should also clear the component image.
+    // Ideally this logic is handled by setting images to null if appropriate.
+    // Here we just ensure component image is cleared if image is reset.
+    // Since handleImageLoad is mostly for loading, if we had a remove logic it would be separate.
+  }, [uploadImage]);
 
   const handleImageReplace = useCallback(
       (index) => {
@@ -260,6 +329,9 @@ function FTMixer() {
                       unifiedSize={unifiedSize}
                       onImageLoad={handleImageLoad}
                       onImageReplace={handleImageReplace}
+                      isLoading={loadingStates[0]}
+                      componentImage={componentImages[0]}
+                      isComponentLoading={componentLoadingStates[0]}
                   />
                   <InputViewport
                       index={1}
@@ -270,6 +342,9 @@ function FTMixer() {
                       unifiedSize={unifiedSize}
                       onImageLoad={handleImageLoad}
                       onImageReplace={handleImageReplace}
+                      isLoading={loadingStates[1]}
+                      componentImage={componentImages[1]}
+                      isComponentLoading={componentLoadingStates[1]}
                   />
                   <OutputViewport
                       label="Output A"
@@ -292,6 +367,9 @@ function FTMixer() {
                       unifiedSize={unifiedSize}
                       onImageLoad={handleImageLoad}
                       onImageReplace={handleImageReplace}
+                      isLoading={loadingStates[2]}
+                      componentImage={componentImages[2]}
+                      isComponentLoading={componentLoadingStates[2]}
                   />
                   <InputViewport
                       index={3}
@@ -302,6 +380,9 @@ function FTMixer() {
                       unifiedSize={unifiedSize}
                       onImageLoad={handleImageLoad}
                       onImageReplace={handleImageReplace}
+                      isLoading={loadingStates[3]}
+                      componentImage={componentImages[3]}
+                      isComponentLoading={componentLoadingStates[3]}
                   />
                   <OutputViewport
                       label="Output B"
